@@ -4,6 +4,10 @@ AccessAssist checks course documents against the ADA Title II web rule, which re
 
 **Phase 3 status:** the secure intake layer is complete (REQ-01, 02, 03, 11, 13). Two HTML checks run end to end (WCAG 1.1.1 image text alternatives, 3.1.1 page language). Full detection, PDF and Word checks, and AI-written fix suggestions are Phase 4.
 
+## Try it
+
+Open https://accessassist-git-365255122806.europe-west1.run.app in a browser, upload an HTML, PDF or Word file (or click a sample), and see each problem with its WCAG rule and a fix.
+
 ## Endpoints
 
 One Cloud Run service hosts both parts, on different paths:

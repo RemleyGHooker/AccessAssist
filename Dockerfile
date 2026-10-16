@@ -4,6 +4,7 @@ ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY src ./src
+COPY public ./public
 ARG GIT_SHA=dev
 ENV GIT_SHA=$GIT_SHA
 USER node

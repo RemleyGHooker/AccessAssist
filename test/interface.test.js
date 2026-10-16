@@ -70,6 +70,13 @@ test('tester rejects a bad target_url and forwards an unreachable target as a co
   assert.equal((await r.json()).source, 'communication');
 });
 
+test('the upload page is served at the root', async () => {
+  const r = await fetch(`${root}/`);
+  assert.equal(r.status, 200);
+  assert.match(r.headers.get('content-type'), /text\/html/);
+  assert.match(await r.text(), /AccessAssist/);
+});
+
 test('unknown paths still answer in JSON', async () => {
   const r = await fetch(`${root}/nope`);
   assert.equal(r.status, 404);

@@ -1,4 +1,5 @@
 import express from 'express';
+import { fileURLToPath } from 'node:url';
 import { createSystemRouter } from './system.js';
 import { createTesterRouter } from './tester.js';
 
@@ -32,7 +33,9 @@ export function createApp() {
 
   app.use('/system', createSystemRouter());
   app.use('/tester', createTesterRouter());
-  app.get('/', (_req, res) => res.json({ service: 'AccessAssist (ECE 30861 Team 19)', system: '/system', tester: '/tester', version: VERSION }));
+  // A simple upload page for people; the JSON APIs above are for software and testers.
+  app.use(express.static(fileURLToPath(new URL('../public', import.meta.url))));
+  app.get('/about', (_req, res) => res.json({ service: 'AccessAssist (ECE 30861 Team 19)', system: '/system', tester: '/tester', version: VERSION }));
 
   app.use((_req, res) => res.status(404).json({ code: 'NOT_FOUND', message: 'No such endpoint.' }));
   // Any unexpected crash still answers in the standard error shape.
