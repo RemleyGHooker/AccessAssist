@@ -1,0 +1,85 @@
+name: CI
+
+# Runs on every pull request and every push to main.
+# Branch protection on main should require the "checks" job, so a failing
+# lint, scan, contract check or test blocks the merge.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Lint, scan, contract, tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Lint (ESLint, zero warnings)
+        run: npm run lint
+      - name: OpenAPI contract is valid (OpenAPI 3.1.1)
+        run: npm run lint:openapi
+      - name: Dependency security scan (high and critical)
+        run: npm run audit
+      - name: Full test suite with coverage (T-01 to T-16 + test interface)
+        run: npm run test:coverage
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/lcov.info
+
+  deploy:
+    name: Deploy to Cloud Run
+    needs: checks
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      HAS_GCP: ${{ secrets.GCP_SA_KEY != '' }}
+      REGION: ${{ vars.GCP_REGION || 'us-central1' }}
+      SERVICE: accessassist
+    steps:
+      - name: Skip when Google Cloud is not configured
+        if: env.HAS_GCP != 'true'
+        run: echo "::notice::Add the GCP_SA_KEY secret and GCP_PROJECT_ID variable to enable deploys (see README)."
+      - uses: actions/checkout@v4
+        if: env.HAS_GCP == 'true'
+      - uses: google-github-actions/auth@v2
+        if: env.HAS_GCP == 'true'
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - uses: google-github-actions/setup-gcloud@v2
+        if: env.HAS_GCP == 'true'
+      - name: Deploy the commit that passed CI
+        if: env.HAS_GCP == 'true'
+        # max-instances=1 keeps every test session on one instance (in-memory session list).
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --project "${{ vars.GCP_PROJECT_ID }}" \
+            --region "$REGION" \
+            --source . \
+            --allow-unauthenticated \
+            --max-instances 1 \
+            --set-env-vars "GIT_SHA=${GITHUB_SHA}" \
+            --labels "commit=${GITHUB_SHA:0:12}" \
+            --quiet
+      - uses: actions/setup-node@v4
+        if: env.HAS_GCP == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - name: Smoke test the live service
+        if: env.HAS_GCP == 'true'
+        run: |
+          npm ci
+          URL=$(gcloud run services describe "$SERVICE" --project "${{ vars.GCP_PROJECT_ID }}" --region "$REGION" --format 'value(status.url)')
+          echo "Deployed: $URL"
+          BASE_URL="$URL/system" npm run test:remote

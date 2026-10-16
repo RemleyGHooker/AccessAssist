@@ -1,0 +1,211 @@
+openapi: 3.1.1
+info:
+  title: AccessAssist System API (Pod F common interface)
+  version: 0.3.0
+  description: >
+    Common interface for the Pod F ADA Title II accessibility checker (ECE 30861, Teams 19 and 20),
+    plus the course cross-team test endpoints. Stateless, no authentication, HTTPS only.
+    Uploaded files are processed in memory and discarded after the response.
+  license:
+    name: UNLICENSED
+    identifier: UNLICENSED
+servers:
+  - url: https://REPLACE-WITH-CLOUD-RUN-URL/system
+    description: Team 19 deployed system (replace after first deploy)
+  - url: http://localhost:8080/system
+    description: Local development
+security: []
+tags:
+  - name: project
+    description: Pod common interface
+  - name: testing
+    description: Course cross-team testing interface
+paths:
+  /health:
+    get:
+      tags: [project]
+      operationId: getHealth
+      summary: Confirm the service is running
+      responses:
+        '200':
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, const: ok }
+  /formats:
+    get:
+      tags: [project]
+      operationId: getFormats
+      summary: List accepted file types and the size limit (REQ-02)
+      responses:
+        '200':
+          description: The exact list POST /analyze enforces
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [supported_mime_types, max_file_size_mb]
+                properties:
+                  supported_mime_types:
+                    type: array
+                    minItems: 1
+                    items: { type: string }
+                  max_file_size_mb: { type: number, minimum: 10 }
+  /analyze:
+    post:
+      tags: [project]
+      operationId: analyzeDocument
+      summary: Check a document against supported WCAG 2.1 criteria (REQ-01 to REQ-09, REQ-13)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary, description: 'Non-empty, at most 10 MB' }
+                wcag_level: { type: string, enum: [A, AA], default: AA }
+      responses:
+        '200':
+          description: Evaluation finished
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AnalysisResult' }
+        '400':
+          description: Missing file (MISSING_FILE) or invalid wcag_level (INVALID_WCAG_LEVEL)
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '413':
+          description: File larger than 10 MB (FILE_TOO_LARGE)
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '415':
+          description: Unsupported file type (UNSUPPORTED_MEDIA_TYPE)
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '422':
+          description: Empty, corrupt or malformed file (UNPROCESSABLE_FILE)
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '503':
+          description: A required internal or external service failed (PROCESSING_UNAVAILABLE); safe to retry
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+  /test/setup:
+    post:
+      tags: [testing]
+      operationId: systemTestSetup
+      summary: Prepare a test session (no stored state is needed; the id is recorded)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [session_id]
+              properties:
+                session_id: { type: string, minLength: 1 }
+                setup: { type: object }
+      responses:
+        '201':
+          description: Ready
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [session_id]
+                properties:
+                  session_id: { type: string }
+        '400':
+          description: Missing session_id
+          content: { application/json: { schema: { $ref: '#/components/schemas/TestError' } } }
+        '409':
+          description: Session already exists
+          content: { application/json: { schema: { $ref: '#/components/schemas/TestError' } } }
+  /test/report:
+    get:
+      tags: [testing]
+      operationId: systemTestReport
+      summary: Code coverage measured for a session
+      parameters:
+        - name: session_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: Coverage for the session
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [session_id, coverage]
+                properties:
+                  session_id: { type: string }
+                  coverage:
+                    type: object
+                    required: [code]
+                    properties:
+                      code: { $ref: '#/components/schemas/CoverageMeasure' }
+        '400':
+          description: Missing session_id
+          content: { application/json: { schema: { $ref: '#/components/schemas/TestError' } } }
+        '404':
+          description: Unknown session
+          content: { application/json: { schema: { $ref: '#/components/schemas/TestError' } } }
+components:
+  schemas:
+    Issue:
+      type: object
+      required: [wcag_criterion, location, severity, description, suggested_fix]
+      properties:
+        wcag_criterion: { type: string, pattern: '^\d+\.\d+\.\d+$', examples: ['1.1.1'] }
+        location:
+          oneOf:
+            - type: 'null'
+            - type: object
+              properties:
+                selector: { type: string }
+                line: { type: integer, minimum: 1 }
+                page: { type: integer, minimum: 1 }
+                snippet: { type: string }
+        severity: { type: string, enum: [critical, serious, moderate, minor] }
+        description: { type: string, minLength: 1 }
+        suggested_fix: { type: string, minLength: 1 }
+    AnalysisResult:
+      type: object
+      required: [issues]
+      properties:
+        wcag_level: { type: string, enum: [A, AA] }
+        issues:
+          type: array
+          items: { $ref: '#/components/schemas/Issue' }
+        checks_run:
+          type: array
+          description: WCAG criteria actually checked for this file type. Empty means no evaluation was performed.
+          items: { type: string }
+        no_violations_detected: { type: boolean }
+        message:
+          type: string
+          description: Required when issues is empty. Never a certification of full compliance (REQ-08).
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [MISSING_FILE, INVALID_WCAG_LEVEL, FILE_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, UNPROCESSABLE_FILE, PROCESSING_UNAVAILABLE]
+        message: { type: string, minLength: 1 }
+    TestError:
+      type: object
+      required: [message, source]
+      properties:
+        message: { type: string, minLength: 1 }
+        source: { type: string, enum: [tester, system, communication, unknown] }
+    CoverageMeasure:
+      type: object
+      required: [covered, total, basis]
+      properties:
+        covered: { type: [integer, 'null'], minimum: 0 }
+        total: { type: [integer, 'null'], minimum: 0 }
+        basis: { type: string, minLength: 1 }

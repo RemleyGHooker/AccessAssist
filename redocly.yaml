@@ -1,0 +1,8 @@
+extends:
+  - recommended
+rules:
+  # Servers include a placeholder until the first Cloud Run deploy gives us a real URL.
+  no-server-example.com: off
+  no-unused-components: error
+  # GET /health and GET /formats have no error cases in the pod contract.
+  operation-4xx-response: off

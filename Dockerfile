@@ -1,0 +1,11 @@
+FROM node:22-slim
+WORKDIR /app
+ENV NODE_ENV=production
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+COPY src ./src
+ARG GIT_SHA=dev
+ENV GIT_SHA=$GIT_SHA
+USER node
+EXPOSE 8080
+CMD ["node", "src/server.js"]
