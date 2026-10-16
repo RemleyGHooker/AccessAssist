@@ -10,8 +10,8 @@ info:
     name: UNLICENSED
     identifier: UNLICENSED
 servers:
-  - url: https://REPLACE-WITH-CLOUD-RUN-URL/system
-    description: Team 19 deployed system (replace after first deploy)
+  - url: https://REPLACE-WITH-RENDER-URL/system
+    description: Team 19 deployed system on Render (replace after first deploy)
   - url: http://localhost:8080/system
     description: Local development
 security: []

@@ -6,7 +6,7 @@ AccessAssist checks course documents against the ADA Title II web rule, which re
 
 ## Endpoints
 
-One Cloud Run service hosts both parts, on different paths:
+One web service (on Render) hosts both parts, on different paths:
 
 | Part | Base path | Endpoints |
 | --- | --- | --- |
@@ -67,17 +67,15 @@ Coverage for the tester's report uses this pod component list: `health`, `format
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every pull request and push to main: ESLint (zero warnings), OpenAPI validation, `npm audit` (high and critical), and the full test suite with coverage. Turn on branch protection for `main` requiring the **Lint, scan, contract, tests** check so failures block merges.
 
-Pushes to main then deploy to Cloud Run and run the suite against the live URL. To enable that:
+**Hosting:** Render's free tier, set up from [`render.yaml`](render.yaml). Render rebuilds from the Dockerfile and deploys `main` only after the CI check passes. No card is needed. The live revision reports its commit in the `X-App-Version` header.
 
-1. In Google Cloud, create a project, enable Cloud Run and Cloud Build, and create a service account with the roles Cloud Run Admin, Cloud Build Editor, Service Account User, Storage Admin, and Artifact Registry Writer. Download its JSON key.
-2. In GitHub, go to Settings → Secrets and variables → Actions. Add secret `GCP_SA_KEY` (the JSON key) and variable `GCP_PROJECT_ID`. Optionally add variable `GCP_REGION` (default `us-central1`).
-3. Push to main. The live revision is labeled with its commit and reports it in the `X-App-Version` header.
+To set it up the first time: sign in at render.com with GitHub, choose **New → Blueprint**, pick this repo, and click **Apply**.
 
-The service runs with at most one instance so test sessions held in memory aren't split across copies. It scales to zero when idle, so the first request after a quiet period is slower.
+**Sleep:** free services sleep after 15 minutes idle and take about a minute to wake. Our tester waits up to 90 seconds for a sleeping target during `/test/setup`, and the registry lists a 90-second setup limit.
 
 ## Data handling
 
-Uploads are held in memory for one request and dropped once the answer is sent. Nothing is written to disk or a database. Keys belong in Google Secret Manager or GitHub secrets, never in this repo (`.env` is git-ignored). Each request logs one JSON line (method, path, status, error code, latency, version) to Cloud Logging.
+Uploads are held in memory for one request and dropped once the answer is sent. Nothing is written to disk or a database. Keys belong in Google Secret Manager or GitHub secrets, never in this repo (`.env` is git-ignored). Each request logs one JSON line (method, path, status, error code, latency, version), visible in the Render Logs tab.
 
 ## Known limitations
 

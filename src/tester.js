@@ -6,7 +6,9 @@ import express from 'express';
 import { randomUUID } from 'node:crypto';
 import { cases, runCase, COMPONENTS, TOTAL_ACCEPTANCE_CRITERIA } from './cases.js';
 
-const SETUP_TIMEOUT_MS = 30_000;
+// Free hosts (ours included) sleep when idle and take up to ~60 s to wake,
+// so setup waits up to 90 s for the target before giving up.
+const SETUP_TIMEOUT_MS = 90_000;
 
 export function createTesterRouter() {
   const router = express.Router();

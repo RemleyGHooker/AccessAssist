@@ -2,10 +2,10 @@ import express from 'express';
 import { createSystemRouter } from './system.js';
 import { createTesterRouter } from './tester.js';
 
-const VERSION = process.env.GIT_SHA || 'dev';
+const VERSION = process.env.RENDER_GIT_COMMIT || process.env.GIT_SHA || 'dev';
 
-// One structured JSON log line per request. Cloud Run sends stdout to Cloud Logging,
-// which reads "severity" and indexes the other fields for search and charts.
+// One structured JSON log line per request, written to stdout. The host (Render) shows these in its Logs tab;
+// "severity" plus the other fields make errors easy to search and count.
 function requestLog(req, res, next) {
   const started = process.hrtime.bigint();
   res.on('finish', () => {
