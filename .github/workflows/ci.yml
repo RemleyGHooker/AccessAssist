@@ -1,7 +1,7 @@
 name: CI
 
 # Runs on every pull request and every push to main.
-# Render deploys main only after this "checks" job passes (render.yaml: autoDeployTrigger: checksPass).
+# Google Cloud Build deploys main to Cloud Run; live-check.yml then tests the live system.
 # Branch protection on main should require the "checks" job, so a failing
 # lint, scan, contract check or test blocks the merge.
 on:

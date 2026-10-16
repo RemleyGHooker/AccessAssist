@@ -6,7 +6,7 @@ AccessAssist checks course documents against the ADA Title II web rule, which re
 
 ## Endpoints
 
-One web service (on Render) hosts both parts, on different paths:
+One Cloud Run service hosts both parts, on different paths:
 
 | Part | Base path | Endpoints |
 | --- | --- | --- |
@@ -67,15 +67,16 @@ Coverage for the tester's report uses this pod component list: `health`, `format
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every pull request and push to main: ESLint (zero warnings), OpenAPI validation, `npm audit` (high and critical), and the full test suite with coverage. Turn on branch protection for `main` requiring the **Lint, scan, contract, tests** check so failures block merges.
 
-**Hosting:** Render's free tier, set up from [`render.yaml`](render.yaml). Render rebuilds from the Dockerfile and deploys `main` only after the CI check passes. No card is needed. The live revision reports its commit in the `X-App-Version` header.
+**Hosting:** Google Cloud Run (project `phase-3-511821`, region `europe-west1`, service `accessassist-git`). Google Cloud Build watches this repo and deploys every push to `main`. The [`live-check`](.github/workflows/live-check.yml) workflow then waits for that deploy and runs the full suite against the live address.
 
-To set it up the first time: sign in at render.com with GitHub, choose **New → Blueprint**, pick this repo, and click **Apply**.
+Live system: https://accessassist-git-365255122806.europe-west1.run.app/system
+Live tester: https://accessassist-git-365255122806.europe-west1.run.app/tester
 
-**Sleep:** free services sleep after 15 minutes idle and take about a minute to wake. Our tester waits up to 90 seconds for a sleeping target during `/test/setup`, and the registry lists a 90-second setup limit.
+The service scales to zero when idle, so the first request after a quiet period takes a few extra seconds while it starts.
 
 ## Data handling
 
-Uploads are held in memory for one request and dropped once the answer is sent. Nothing is written to disk or a database. Keys belong in Google Secret Manager or GitHub secrets, never in this repo (`.env` is git-ignored). Each request logs one JSON line (method, path, status, error code, latency, version), visible in the Render Logs tab.
+Uploads are held in memory for one request and dropped once the answer is sent. Nothing is written to disk or a database. Keys belong in Google Secret Manager or GitHub secrets, never in this repo (`.env` is git-ignored). Each request logs one JSON line (method, path, status, error code, latency, version), visible in Cloud Run Logs.
 
 ## Known limitations
 

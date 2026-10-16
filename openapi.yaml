@@ -10,8 +10,8 @@ info:
     name: UNLICENSED
     identifier: UNLICENSED
 servers:
-  - url: https://REPLACE-WITH-RENDER-URL/system
-    description: Team 19 deployed system on Render (replace after first deploy)
+  - url: https://accessassist-git-365255122806.europe-west1.run.app/system
+    description: Team 19 deployed system (Google Cloud Run)
   - url: http://localhost:8080/system
     description: Local development
 security: []
