@@ -56,13 +56,14 @@ One suite, [`src/cases.js`](src/cases.js), drives both CI (`npm test`) and the d
 | T-01, T-02 | Valid HTML and PDF accepted | AC-01 |
 | T-03 | `/formats` lists types and a limit of 10 MB or more | AC-02 |
 | T-04 | `.exe` rejected with 415 | AC-02 |
-| T-05 | Missing alt text reported under 1.1.1 | AC-01, AC-02 |
+| T-05 | Missing alt text reported under 1.1.1 | AC-04, AC-05, AC-06, AC-07 |
 | T-06, T-07 | Empty file and cut-off PDF rejected with 422 | AC-03 |
-| T-08, T-09 | Missing file and `wcag_level=AAA` rejected with 400 | AC-03 |
-| T-10, T-11 | 10 MB + 1 byte rejected (413); exactly 10 MB accepted within 30 s | AC-03, AC-12 |
-| T-12, T-13 | Health check; plain HTTP refused or redirected | AC-11 |
+| T-08, T-09 | Missing file and `wcag_level=AAA` rejected with 400 | AC-13 |
+| T-10, T-11 | 10 MB + 1 byte rejected (413); exactly 10 MB accepted within 30 s | AC-02, AC-12 |
+| T-12 | Health check | AC-13 |
+| T-13 | Plain HTTP refused or redirected to HTTPS | AC-11 |
 | T-14 | Every error has `code` + `message`, never `issues` | AC-13 |
-| T-15 | Clean file gets an explicit no-violations message | AC-07, AC-08, AC-13 |
+| T-15 | Clean file gets an explicit no-violations message | AC-08, AC-13 |
 | T-16 | Simulated outage returns 503, never partial results (CI only) | AC-09 |
 
 Coverage for the tester's report uses this pod component list: `health`, `formats`, `validation`, `analyze`, `test-interface`.

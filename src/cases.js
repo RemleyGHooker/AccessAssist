@@ -76,7 +76,7 @@ export const cases = [
     } },
   { id: 'T-04', ac: ['AC-02'], component: 'validation', name: 'Executable file is rejected as unsupported (415)',
     run: async (b) => isError(await analyze(b, fixtures.executable), 415, 'UNSUPPORTED_MEDIA_TYPE') },
-  { id: 'T-05', ac: ['AC-01', 'AC-02'], component: 'analyze', name: 'HTML with a missing alt attribute is reported under 1.1.1',
+  { id: 'T-05', ac: ['AC-04', 'AC-05', 'AC-06', 'AC-07'], component: 'analyze', name: 'HTML with a missing alt attribute is reported under 1.1.1',
     run: async (b) => {
       const r = await analyze(b, fixtures.missingAltHtml);
       const base = isResult(r);
@@ -89,20 +89,20 @@ export const cases = [
     run: async (b) => isError(await analyze(b, fixtures.emptyFile), 422, 'UNPROCESSABLE_FILE') },
   { id: 'T-07', ac: ['AC-03'], component: 'validation', name: 'Truncated PDF is rejected (422)',
     run: async (b) => isError(await analyze(b, fixtures.truncatedPdf), 422, 'UNPROCESSABLE_FILE') },
-  { id: 'T-08', ac: ['AC-03'], component: 'validation', name: 'Request with no file is rejected (400)',
+  { id: 'T-08', ac: ['AC-13'], component: 'validation', name: 'Request with no file is rejected (400)',
     run: async (b) => isError(await analyze(b, null, { wcag_level: 'AA' }), 400, 'MISSING_FILE') },
-  { id: 'T-09', ac: ['AC-03'], component: 'validation', name: 'wcag_level "AAA" is rejected (400)',
+  { id: 'T-09', ac: ['AC-13'], component: 'validation', name: 'wcag_level "AAA" is rejected (400)',
     run: async (b) => isError(await analyze(b, fixtures.accessibleHtml, { wcag_level: 'AAA' }), 400, 'INVALID_WCAG_LEVEL') },
-  { id: 'T-10', ac: ['AC-03'], component: 'validation', name: 'File one byte over 10 MB is rejected (413)',
+  { id: 'T-10', ac: ['AC-02'], component: 'validation', name: 'File one byte over 10 MB is rejected (413)',
     run: async (b) => isError(await analyze(b, fixtures.overMaxSize), 413, 'FILE_TOO_LARGE') },
-  { id: 'T-11', ac: ['AC-03', 'AC-12'], component: 'analyze', name: 'File of exactly 10 MB is accepted within 30 s',
+  { id: 'T-11', ac: ['AC-02', 'AC-12'], component: 'analyze', name: 'File of exactly 10 MB is accepted within 30 s',
     run: async (b) => {
       const r = await analyze(b, fixtures.exactlyMaxSize);
       const base = isResult(r);
       if (base.outcome !== 'pass') return base;
       return r.ms <= TIMEOUT_MS ? pass(`Accepted in ${r.ms} ms.`) : fail(`Took ${r.ms} ms, over the 30 s limit.`);
     } },
-  { id: 'T-12', ac: ['AC-11'], component: 'health', name: 'GET /health answers {"status":"ok"}',
+  { id: 'T-12', ac: ['AC-13'], component: 'health', name: 'GET /health answers {"status":"ok"}',
     run: async (b) => {
       const r = await call(b, '/health');
       return r.status === 200 && r.body?.status === 'ok' ? pass('Received 200 {"status":"ok"}.') : fail(`Received ${r.status} ${JSON.stringify(r.body)}.`);
@@ -134,7 +134,7 @@ export const cases = [
       }
       return pass('All three error responses share the { code, message } shape with no issues array.');
     } },
-  { id: 'T-15', ac: ['AC-07', 'AC-08', 'AC-13'], component: 'analyze', name: 'Clean file gets an explicit no-violations message',
+  { id: 'T-15', ac: ['AC-08', 'AC-13'], component: 'analyze', name: 'Clean file gets an explicit no-violations message',
     run: async (b) => {
       const r = await analyze(b, fixtures.accessibleHtml);
       const base = isResult(r);
