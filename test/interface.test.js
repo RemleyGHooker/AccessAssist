@@ -77,6 +77,14 @@ test('the upload page is served at the root', async () => {
   assert.match(await r.text(), /AccessAssist/);
 });
 
+test('the system and tester base URLs list their endpoints', async () => {
+  for (const path of ['/system', '/tester']) {
+    const r = await fetch(`${root}${path}`);
+    assert.equal(r.status, 200);
+    assert.ok((await r.json()).endpoints.length > 0);
+  }
+});
+
 test('unknown paths still answer in JSON', async () => {
   const r = await fetch(`${root}/nope`);
   assert.equal(r.status, 404);

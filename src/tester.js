@@ -15,6 +15,11 @@ export function createTesterRouter() {
   router.use(express.json());
   const sessions = new Map(); // session_id -> { target_url, state: 'ready'|'running'|'done'|'aborted', report }
 
+  router.get('/', (_req, res) => res.json({
+    service: 'AccessAssist tester (course testing interface)',
+    endpoints: ['POST /test/setup', 'POST /test/run', 'GET /test/report'],
+  }));
+
   router.post('/test/setup', async (req, res) => {
     const target = req.body?.target_url;
     if (typeof target !== 'string' || !/^https?:\/\/[^\s?#]+$/.test(target)) {

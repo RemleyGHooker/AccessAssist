@@ -24,6 +24,12 @@ export function createSystemRouter() {
   // 10 MB file passes and a 10 MB + 1 byte file is still rejected (caught by test T-11).
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_SIZE_BYTES + 1, files: 1 } });
 
+  // The base URL itself lists the endpoints, so opening it in a browser doesn't look broken.
+  router.get('/', (_req, res) => res.json({
+    service: 'AccessAssist system (pod common interface)',
+    endpoints: ['GET /health', 'GET /formats', 'POST /analyze', 'POST /test/setup', 'GET /test/report'],
+  }));
+
   router.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
   router.get('/formats', (_req, res) =>
