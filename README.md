@@ -24,7 +24,7 @@ npm run test:coverage
 npm run evidence
 ```
 
-Open `http://localhost:8080`. The page includes HTML/PDF/Word examples, WCAG A/AA selection, page/line/XML locations and JSON report export. PDF and DOCX files are excluded from Git. `npm start` generates the synthetic examples automatically, and the Docker build generates them inside the image; `npm run samples` regenerates them manually. The Markdown report and SVG/PNG models are included; PDF/Word exports remain local.
+Open `http://localhost:8080`. The page includes HTML/PDF/Word examples, WCAG A/AA selection, page/line/XML locations and JSON report export. Example documents and PDF/SVG/PNG models are included in Git; `npm run samples` regenerates the examples manually. Only `docs/PHASE4_REPORT.pdf` and `docs/PHASE4_REPORT.docx` are excluded and remain local; the Markdown report is included.
 
 ## API
 

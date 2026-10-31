@@ -1,12 +1,12 @@
 # Local validation evidence
 
-Started: 2026-10-31T22:16:36.715Z (Shanghai: 2026-11-01 06:16:36)
+Started: 2026-10-31T22:17:40.338Z (Shanghai: 2026-11-01 06:17:40)
 
-Target: http://127.0.0.1:45099/system
+Target: http://127.0.0.1:33129/system
 
 Version: local-0.4.0
 
-Source fingerprint: `e047fb4f61a30980e85ceab46ffa3f63e07f820aed4cfb0a4f2b92da59168d78`
+Source fingerprint: `d66e1eef41a914cb83417db8f687deddb0268808e2702529951490bb973f83ba`
 
 {"tests":30,"passed":29,"failed":0,"errors":0,"skipped":1}
 
@@ -24,7 +24,7 @@ Source fingerprint: `e047fb4f61a30980e85ceab46ffa3f63e07f820aed4cfb0a4f2b92da591
 | T-08 | pass | Expected 400 MISSING_FILE; received 400 MISSING_FILE. |
 | T-09 | pass | Expected 400 INVALID_WCAG_LEVEL; received 400 INVALID_WCAG_LEVEL. |
 | T-10 | pass | Expected 413 FILE_TOO_LARGE; received 413 FILE_TOO_LARGE. |
-| T-11 | pass | Accepted in 1566 ms. |
+| T-11 | pass | Accepted in 1577 ms. |
 | T-12 | pass | Received 200 {"status":"ok"}. |
 | T-13 | skip | Target is not served over HTTPS (local run); check applies to deployed services only. |
 | T-14 | pass | All three error responses share the { code, message } shape with no issues array. |

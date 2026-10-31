@@ -1,7 +1,7 @@
 {
-  "started_at": "2026-10-31T22:16:36.715Z",
-  "started_at_shanghai": "2026-11-01 06:16:36",
-  "target": "http://127.0.0.1:45099/system",
+  "started_at": "2026-10-31T22:17:40.338Z",
+  "started_at_shanghai": "2026-11-01 06:17:40",
+  "target": "http://127.0.0.1:33129/system",
   "execution": "local source working tree",
   "results": [
     {
@@ -105,7 +105,7 @@
         "AC-12"
       ],
       "outcome": "pass",
-      "message": "Accepted in 1566 ms."
+      "message": "Accepted in 1577 ms."
     },
     {
       "id": "T-12",
@@ -321,7 +321,7 @@
       "path": "/test/setup",
       "status": 201,
       "body": {
-        "session_id": "evidence-1793484996715"
+        "session_id": "evidence-1793485060338"
       },
       "valid": true,
       "message": "Response matches OpenAPI."
@@ -350,10 +350,10 @@
     },
     {
       "method": "GET",
-      "path": "/test/report?session_id=evidence-1793484996715",
+      "path": "/test/report?session_id=evidence-1793485060338",
       "status": 200,
       "body": {
-        "session_id": "evidence-1793484996715",
+        "session_id": "evidence-1793485060338",
         "coverage": {
           "code": {
             "covered": null,
@@ -405,7 +405,7 @@
     "revision": null,
     "remediation_mode": "deterministic"
   },
-  "finished_at": "2026-10-31T22:16:42.634Z",
+  "finished_at": "2026-10-31T22:17:46.246Z",
   "totals": {
     "tests": 30,
     "passed": 29,
@@ -413,19 +413,19 @@
     "errors": 0,
     "skipped": 1
   },
-  "base_commit": "495707b827e97fcc8c7af8a426aadc4418372174",
+  "base_commit": "137f0ca933520fc33899d23bd7e06ff102b04daf",
   "source_manifest": {
     ".github/workflows/ci.yml": "d65eefe5fa8f629cbe4b1d29cfbb55f824e29125e1088f1df96505ade6555f9a",
     ".github/workflows/live-check.yml": "89bd4e6de60d27c357665ea4d19ee12c021f7b4002a923359790e334190eeb7c",
-    "Dockerfile": "465239624692d50e95657c08d9853955fb955935b307adc3b606f2a39a5ee016",
+    "Dockerfile": "a5d5febd4b32927d8209ff8aff9c7a8bda7c61dee5b0e20e6639b62c1048b43f",
     "openapi.yaml": "1d2f73c1fddca515754fad9a52fa57ac47678ed34eba65b823fd546c0caf443a",
     "package-lock.json": "43ca2d2f25dead5576b96ee06018f0d64513e8ddb0568cbd1ace67461c89a3d9",
-    "package.json": "c069bc33bc571d44b783b46ee8d1a6e71fb4becdfb1b3ec5b94f36a2e5f40162",
+    "package.json": "c99d60e869ed056ffed73064aede7cf62fee6a181928a5f2e2b28c58e7bcc137",
     "public/app.js": "4d1b4f45867033136ebc1743dc530c132b8b7bd86dcf4ec959fe9ed8bce794d3",
     "public/index.html": "18ac92c6340a2ed7c377c89a19eb5bcb2ce1c631678be119df7fa69881975327",
-    "public/samples/missingAltDocx.docx": "65e4837bb03c9ddf85df172f6e6452739a66ba27c649f9481ca663edbd43e660",
+    "public/samples/missingAltDocx.docx": "f4df3774cdd86333c1d04ba72996ea929fa8c3eed6a714d76173e9213010dfcd",
     "public/samples/missingAltPdf.pdf": "a87dc05476f67e98be7cc5e0ad5d05777fc3b40ad5972d9d211ff71ee542ae65",
-    "public/samples/validDocx.docx": "d05e9bf35911fd0b29b0aa6d44100ab9bc04602196e14533fbc1838882aba033",
+    "public/samples/validDocx.docx": "4358b90fb61c33c1c3d6157a6d77041af29d42065b790eb17f5714dfec31de9d",
     "public/samples/validPdf.pdf": "0d27f15327df21d677970c02f139bd8854a0de0ca8659e9e00c9011a22ae8a48",
     "scripts/build-models.py": "83f67c0fc2b1d41d5a68e7c90d1a6d55b89516ee3cf3ba0148ca58eb6c32a137",
     "scripts/collect-evidence.js": "b17b973d12df36b01d807ada39238b66bfc9b2fb31fa36c22f4a2f68fbad8b07",
@@ -454,5 +454,5 @@
     "test/remediation.test.js": "4a6eeb4e66b9d555ac1dab41ab7f430366d231ef196e3b9802ffc6aff3c0de10",
     "test/ui.test.js": "e35131a38628c90a1b4652cfba48e1e0dc3b165223f418f0318d2b770bc2c474"
   },
-  "source_fingerprint": "e047fb4f61a30980e85ceab46ffa3f63e07f820aed4cfb0a4f2b92da59168d78"
+  "source_fingerprint": "d66e1eef41a914cb83417db8f687deddb0268808e2702529951490bb973f83ba"
 }

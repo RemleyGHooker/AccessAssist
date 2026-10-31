@@ -10,7 +10,6 @@
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   },
   "scripts": {
-    "prestart": "node scripts/export-samples.js",
     "start": "node src/server.js",
     "test": "NODE_ENV=test node --test --test-concurrency=1 \"test/**/*.test.js\"",
     "test:coverage": "NODE_ENV=test c8 --all --include='src/**/*.js' --reporter=text-summary --reporter=lcov node --test --test-concurrency=1 \"test/**/*.test.js\"",
