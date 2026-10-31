@@ -6,7 +6,7 @@ AccessAssist accepts HTML, PDF and DOCX course documents and reports selected WC
 
 ## Delivered source and report
 
-- [Phase 4 answers — all requested questions except Q6](docs/PHASE4_REPORT.md)
+- Phase 4 report answers are retained locally and excluded from this branch.
 - [Implemented rule scope, data flow and limitations](docs/IMPLEMENTATION.md)
 - [Updated system models](docs/MODELS.md)
 - [Human remediation review procedure](docs/REMEDIATION_REVIEW.md)
@@ -24,7 +24,7 @@ npm run test:coverage
 npm run evidence
 ```
 
-Open `http://localhost:8080`. The page includes HTML/PDF/Word examples, WCAG A/AA selection, page/line/XML locations and JSON report export. Example documents and PDF/SVG/PNG models are included in Git; `npm run samples` regenerates the examples manually. Only `docs/PHASE4_REPORT.pdf` and `docs/PHASE4_REPORT.docx` are excluded and remain local; the Markdown report is included.
+Open `http://localhost:8080`. The page includes HTML/PDF/Word examples, WCAG A/AA selection, page/line/XML locations and JSON report export. Example documents and PDF/SVG/PNG models are included in Git; `npm run samples` regenerates the examples manually. The Phase 4 report files (`docs/PHASE4_REPORT.md`, `.pdf` and `.docx`) remain local and are excluded from this branch.
 
 ## API
 

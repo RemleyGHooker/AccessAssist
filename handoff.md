@@ -4,11 +4,11 @@ Prepared for **Xiyue Chen**, **2026-11-01 (Asia/Shanghai)**. Q6 cross-team answe
 
 ## What is ready
 
-- Publication branch: `phase4`, based on `495707b827e97fcc8c7af8a426aadc4418372174`; implementation version `0.4.0`. Deployment remains pending. The original local `phase4-completion` branch and its files are preserved. Per Xiyue's clarified request, only `docs/PHASE4_REPORT.pdf` and `docs/PHASE4_REPORT.docx` are excluded from publication; the two model PDFs and four PDF/DOCX examples are included. Examples can be regenerated with `npm run samples`.
+- Publication branch: `phase4`, based on `495707b827e97fcc8c7af8a426aadc4418372174`; implementation version `0.4.0`. Deployment remains pending. The original local `phase4-completion` branch and its files are preserved. Per Xiyue's latest request, `docs/PHASE4_REPORT.md` is removed from the branch, and all three report files (`.md`, `.pdf`, `.docx`) are ignored; the two model PDFs and four PDF/DOCX examples are included. Examples can be regenerated with `npm run samples`.
 - HTML DOM checks with A/AA filtering; real PDF and DOCX parsing/checks; structured findings with repair guidance; an explicit scoped no-violations message for all supported formats.
 - Optional Groq remediation adapter, with deterministic default, bounded requests, validated responses, no uploaded content sent to Groq, and 503 on a required provider failure.
 - Expanded contract/unit/integration/UI tests, runtime JSON Schema validation, CI artifacts, version verification, sample files and JSON report download.
-- All requested report sections: `docs/PHASE4_REPORT.md` (Q1–Q5, Q7–Q9); current models and recorded local/live evidence.
+- All requested report sections remain in the local `docs/PHASE4_REPORT.md` (Q1–Q5, Q7–Q9). Current models and recorded local/live evidence are included in this branch.
 
 ## Questions that need real team/course/account information
 
