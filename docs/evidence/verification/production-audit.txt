@@ -1,0 +1,5 @@
+
+> accessassist@0.4.0 audit
+> npm audit --audit-level=high --omit=dev
+
+found 0 vulnerabilities

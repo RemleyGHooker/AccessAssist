@@ -54,7 +54,7 @@ test('tester runs the whole suite against our own system and stores one report',
   for (const r of report.results) {
     assert.ok(['pass', 'fail', 'error', 'skip'].includes(r.outcome));
     assert.ok(r.message.length > 0);
-    assert.notEqual(r.outcome, 'fail', `${r.test_id}: ${r.message}`);
+    assert.ok(['pass', 'skip'].includes(r.outcome), `${r.test_id}: ${r.message}`);
   }
   for (const key of ['code', 'component', 'system']) assert.ok(report.coverage[key].basis.length > 0);
 

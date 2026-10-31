@@ -13,6 +13,10 @@ on:
 permissions:
   contents: read
 
+env:
+  GIT_SHA: ${{ github.sha }}
+  REMEDIATION_MODE: deterministic
+
 jobs:
   checks:
     name: Lint, scan, contract, tests
@@ -30,10 +34,17 @@ jobs:
         run: npm run lint:openapi
       - name: Dependency security scan (high and critical)
         run: npm run audit
-      - name: Full test suite with coverage (T-01 to T-16 + test interface)
+      - name: Full test suite with coverage (contract, parsers, remediation, interface, UI)
         run: npm run test:coverage
+      - name: Collect AC and operation evidence for this commit
+        run: npm run evidence
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
           name: coverage
           path: coverage/lcov.info
+      - name: Upload validation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-evidence
+          path: docs/evidence/local/

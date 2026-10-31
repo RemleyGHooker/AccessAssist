@@ -29,21 +29,26 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          deployed=false
           for i in $(seq 1 60); do
             s=$(gh api repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs \
               --jq '[.check_runs[] | select(.name|startswith("cloudrun"))] | last | (.status+" "+(.conclusion//""))')
             echo "deploy: $s"
-            case "$s" in "completed success") break;; "completed "*) echo "::error::Google deploy failed"; exit 1;; esac
+            case "$s" in "completed success") deployed=true; break;; "completed "*) echo "::error::Google deploy failed"; exit 1;; esac
             sleep 20
           done
+          if [ "$deployed" != true ]; then echo "::error::Timed out waiting for this commit to deploy"; exit 1; fi
           sleep 20
       - name: Live system answers
         run: |
           curl -sS --max-time 90 -i "$LIVE_URL/system/health" | tee health.txt
           echo "::notice title=Live health::$(tail -1 health.txt)"
       - name: Full suite against the live system
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
         run: |
           set -o pipefail
+          BASE_URL="$LIVE_URL/system" EVIDENCE_DIR=docs/evidence/remote npm run evidence
           BASE_URL="$LIVE_URL/system" npm run test:remote 2>&1 | tee remote.txt
       - name: Summarize suite results
         if: always()
@@ -58,6 +63,7 @@ jobs:
           echo "session $SID"
           curl -sS --max-time 600 -X POST "$LIVE_URL/tester/test/run" -H 'content-type: application/json' \
             -d "{\"session_id\":\"$SID\"}" | tee tester-report.json | jq .
+          jq -e '.results and ([.results[] | select(.outcome == "fail" or .outcome == "error")] | length == 0)' tester-report.json
           echo "::notice title=Tester report::$(jq -c '{passed: ([.results[]|select(.outcome=="pass")]|length), failed: ([.results[]|select(.outcome=="fail")]|length), errors: ([.results[]|select(.outcome=="error")]|length), skipped: ([.results[]|select(.outcome=="skip")]|length), coverage: {component: .coverage.component, system: .coverage.system}}' tester-report.json)"
       - uses: actions/upload-artifact@v4
         if: always()
@@ -67,3 +73,4 @@ jobs:
             remote.txt
             tester-report.json
             health.txt
+            docs/evidence/remote/

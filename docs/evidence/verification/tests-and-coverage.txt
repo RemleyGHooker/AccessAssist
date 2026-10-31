@@ -1,0 +1,417 @@
+
+> accessassist@0.4.0 test:coverage
+> NODE_ENV=test c8 --all --include='src/**/*.js' --reporter=text-summary --reporter=lcov node --test --test-concurrency=1 "test/**/*.test.js"
+
+TAP version 13
+# Subtest: H-01 contrast oracles: black/white 21:1, identical colors 1:1, 4.5 boundary
+ok 1 - H-01 contrast oracles: black/white 21:1, identical colors 1:1, 4.5 boundary
+  ---
+  duration_ms: 157.514473
+  type: 'test'
+  ...
+# Subtest: H-02 large text uses 3:1 and AA checks are excluded at level A
+ok 2 - H-02 large text uses 3:1 and AA checks are excluded at level A
+  ---
+  duration_ms: 26.194367
+  type: 'test'
+  ...
+# Subtest: H-03 DOM checks ignore comment images, decorative and hidden images; data-alt is not alt
+ok 3 - H-03 DOM checks ignore comment images, decorative and hidden images; data-alt is not alt
+  ---
+  duration_ms: 10.129851
+  type: 'test'
+  ...
+# Subtest: H-04 native and ARIA labels pass; broken label references and unnamed controls fail
+ok 4 - H-04 native and ARIA labels pass; broken label references and unnamed controls fail
+  ---
+  duration_ms: 35.852379
+  type: 'test'
+  ...
+# Subtest: H-05 document language/title and custom heading levels have exact criterion mappings
+ok 5 - H-05 document language/title and custom heading levels have exact criterion mappings
+  ---
+  duration_ms: 9.01429
+  type: 'test'
+  ...
+# Subtest: H-06 scripts cannot execute and external CSS is not fetched
+ok 6 - H-06 scripts cannot execute and external CSS is not fetched
+  ---
+  duration_ms: 9.978937
+  type: 'test'
+  ...
+# Subtest: H-07 static style blocks and inherited backgrounds are checked; gradients are left for review
+ok 7 - H-07 static style blocks and inherited backgrounds are checked; gradients are left for review
+  ---
+  duration_ms: 21.704749
+  type: 'test'
+  ...
+# Subtest: P-01 real tagged PDF fixture has an image, a structure tree, and no supported violations
+ok 8 - P-01 real tagged PDF fixture has an image, a structure tree, and no supported violations
+  ---
+  duration_ms: 2.773443
+  type: 'test'
+  ...
+# Subtest: P-02 PDF alternate-text defect has exact criterion and page, plus a concrete fix
+ok 9 - P-02 PDF alternate-text defect has exact criterion and page, plus a concrete fix
+  ---
+  duration_ms: 1.059062
+  type: 'test'
+  ...
+# Subtest: P-03 untagged PDF is not reported as clean and does not claim an image check ran
+ok 10 - P-03 untagged PDF is not reported as clean and does not claim an image check ran
+  ---
+  duration_ms: 0.655322
+  type: 'test'
+  ...
+# Subtest: P-04 forged PDF fails real parsing
+ok 11 - P-04 forged PDF fails real parsing
+  ---
+  duration_ms: 0.575664
+  type: 'test'
+  ...
+# Subtest: D-01 valid Word package and decorative picture have no supported violations
+ok 12 - D-01 valid Word package and decorative picture have no supported violations
+  ---
+  duration_ms: 14.155906
+  type: 'test'
+  ...
+# Subtest: D-02 Word picture defect maps exactly to 1.1.1 with an XML location
+ok 13 - D-02 Word picture defect maps exactly to 1.1.1 with an XML location
+  ---
+  duration_ms: 2.123259
+  type: 'test'
+  ...
+# Subtest: D-03 missing Word language and empty marked header have exact mappings
+ok 14 - D-03 missing Word language and empty marked header have exact mappings
+  ---
+  duration_ms: 5.513449
+  type: 'test'
+  ...
+# Subtest: D-04 broken ZIP/XML, forbidden DTD, and excessive expanded XML are rejected
+ok 15 - D-04 broken ZIP/XML, forbidden DTD, and excessive expanded XML are rejected
+  ---
+  duration_ms: 712.663206
+  type: 'test'
+  ...
+# Subtest: T-01 Accessible HTML file is accepted and evaluated [AC-01]
+ok 16 - T-01 Accessible HTML file is accepted and evaluated [AC-01]
+  ---
+  duration_ms: 544.431585
+  type: 'test'
+  ...
+# Subtest: T-02 Valid PDF is accepted [AC-01]
+ok 17 - T-02 Valid PDF is accepted [AC-01]
+  ---
+  duration_ms: 114.40481
+  type: 'test'
+  ...
+# Subtest: T-03 GET /formats lists types and a limit of at least 10 MB [AC-02]
+ok 18 - T-03 GET /formats lists types and a limit of at least 10 MB [AC-02]
+  ---
+  duration_ms: 3.163801
+  type: 'test'
+  ...
+# Subtest: T-04 Executable file is rejected as unsupported (415) [AC-02]
+ok 19 - T-04 Executable file is rejected as unsupported (415) [AC-02]
+  ---
+  duration_ms: 3.643724
+  type: 'test'
+  ...
+# Subtest: T-05 HTML with a missing alt attribute is reported under 1.1.1 [AC-04, AC-05, AC-06, AC-07]
+ok 20 - T-05 HTML with a missing alt attribute is reported under 1.1.1 [AC-04, AC-05, AC-06, AC-07]
+  ---
+  duration_ms: 507.660512
+  type: 'test'
+  ...
+# Subtest: T-06 Empty file is rejected (422) [AC-03]
+ok 21 - T-06 Empty file is rejected (422) [AC-03]
+  ---
+  duration_ms: 3.499422
+  type: 'test'
+  ...
+# Subtest: T-07 Truncated PDF is rejected (422) [AC-03]
+ok 22 - T-07 Truncated PDF is rejected (422) [AC-03]
+  ---
+  duration_ms: 1.971748
+  type: 'test'
+  ...
+# Subtest: T-08 Request with no file is rejected (400) [AC-13]
+ok 23 - T-08 Request with no file is rejected (400) [AC-13]
+  ---
+  duration_ms: 4.796314
+  type: 'test'
+  ...
+# Subtest: T-09 wcag_level "AAA" is rejected (400) [AC-13]
+ok 24 - T-09 wcag_level "AAA" is rejected (400) [AC-13]
+  ---
+  duration_ms: 2.042288
+  type: 'test'
+  ...
+# Subtest: T-10 File one byte over 10 MB is rejected (413) [AC-02]
+ok 25 - T-10 File one byte over 10 MB is rejected (413) [AC-02]
+  ---
+  duration_ms: 35.749638
+  type: 'test'
+  ...
+# Subtest: T-11 File of exactly 10 MB is accepted within 30 s [AC-02, AC-12]
+ok 26 - T-11 File of exactly 10 MB is accepted within 30 s [AC-02, AC-12]
+  ---
+  duration_ms: 2296.969683
+  type: 'test'
+  ...
+# Subtest: T-12 GET /health answers {"status":"ok"} [AC-13]
+ok 27 - T-12 GET /health answers {"status":"ok"} [AC-13]
+  ---
+  duration_ms: 2.663077
+  type: 'test'
+  ...
+# Subtest: T-13 Plain HTTP is refused or redirected to HTTPS [AC-11]
+ok 28 - T-13 Plain HTTP is refused or redirected to HTTPS [AC-11] # SKIP Target is not served over HTTPS (local run); check applies to deployed services only.
+  ---
+  duration_ms: 0.176068
+  type: 'test'
+  ...
+# Subtest: T-14 Every error has code and message and never issues [AC-13]
+ok 29 - T-14 Every error has code and message and never issues [AC-13]
+  ---
+  duration_ms: 4.789207
+  type: 'test'
+  ...
+# Subtest: T-15 Clean file gets an explicit no-violations message [AC-08, AC-13]
+ok 30 - T-15 Clean file gets an explicit no-violations message [AC-08, AC-13]
+  ---
+  duration_ms: 513.856864
+  type: 'test'
+  ...
+# Subtest: T-16 Dependency outage returns 503, never partial results [AC-09]
+ok 31 - T-16 Dependency outage returns 503, never partial results [AC-09]
+  ---
+  duration_ms: 3.407434
+  type: 'test'
+  ...
+# Subtest: T-17 Valid DOCX is accepted and evaluated [AC-01]
+ok 32 - T-17 Valid DOCX is accepted and evaluated [AC-01]
+  ---
+  duration_ms: 61.266108
+  type: 'test'
+  ...
+# Subtest: T-18 HTML low contrast maps to WCAG 1.4.3 at AA [AC-04, AC-05]
+ok 33 - T-18 HTML low contrast maps to WCAG 1.4.3 at AA [AC-04, AC-05]
+  ---
+  duration_ms: 533.692168
+  type: 'test'
+  ...
+# Subtest: T-19 Level A excludes AA-only contrast findings [AC-04, AC-05]
+ok 34 - T-19 Level A excludes AA-only contrast findings [AC-04, AC-05]
+  ---
+  duration_ms: 468.381007
+  type: 'test'
+  ...
+# Subtest: T-20 PDF Figure without Alt maps to 1.1.1 with page location [AC-04, AC-05, AC-07]
+ok 35 - T-20 PDF Figure without Alt maps to 1.1.1 with page location [AC-04, AC-05, AC-07]
+  ---
+  duration_ms: 115.62983
+  type: 'test'
+  ...
+# Subtest: T-21 DOCX picture without text alternative maps to 1.1.1 [AC-04, AC-05]
+ok 36 - T-21 DOCX picture without text alternative maps to 1.1.1 [AC-04, AC-05]
+  ---
+  duration_ms: 58.888642
+  type: 'test'
+  ...
+# Subtest: T-22 Clean PDF returns an explicit scoped no-violations result [AC-08]
+ok 37 - T-22 Clean PDF returns an explicit scoped no-violations result [AC-08]
+  ---
+  duration_ms: 113.131586
+  type: 'test'
+  ...
+# Subtest: T-23 Clean DOCX returns an explicit scoped no-violations result [AC-08]
+ok 38 - T-23 Clean DOCX returns an explicit scoped no-violations result [AC-08]
+  ---
+  duration_ms: 59.162614
+  type: 'test'
+  ...
+# Subtest: T-24 DOCX with malformed XML is rejected with 422 [AC-03]
+ok 39 - T-24 DOCX with malformed XML is rejected with 422 [AC-03]
+  ---
+  duration_ms: 57.625418
+  type: 'test'
+  ...
+# Subtest: T-25 Fake PDF with header and EOF but no objects is rejected with 422 [AC-03]
+ok 40 - T-25 Fake PDF with header and EOF but no objects is rejected with 422 [AC-03]
+  ---
+  duration_ms: 111.332801
+  type: 'test'
+  ...
+# Subtest: T-26 Missing HTML language maps to 3.1.1 [AC-04, AC-05]
+ok 41 - T-26 Missing HTML language maps to 3.1.1 [AC-04, AC-05]
+  ---
+  duration_ms: 515.280021
+  type: 'test'
+  ...
+# Subtest: T-27 An unnamed functional image is not treated as decorative [AC-04, AC-05]
+ok 42 - T-27 An unnamed functional image is not treated as decorative [AC-04, AC-05]
+  ---
+  duration_ms: 500.373202
+  type: 'test'
+  ...
+# Subtest: T-28 Missing form label and button name map to 1.3.1 and 4.1.2 [AC-04, AC-05]
+ok 43 - T-28 Missing form label and button name map to 1.3.1 and 4.1.2 [AC-04, AC-05]
+  ---
+  duration_ms: 516.835705
+  type: 'test'
+  ...
+# Subtest: T-29 PDF missing structure, language and title yields mapped findings [AC-04, AC-05]
+ok 44 - T-29 PDF missing structure, language and title yields mapped findings [AC-04, AC-05]
+  ---
+  duration_ms: 113.952122
+  type: 'test'
+  ...
+# Subtest: T-30 Every PDF/DOCX issue includes a concrete repair instruction and valid location [AC-06, AC-07]
+ok 45 - T-30 Every PDF/DOCX issue includes a concrete repair instruction and valid location [AC-06, AC-07]
+  ---
+  duration_ms: 177.72635
+  type: 'test'
+  ...
+# Subtest: system setup returns 201 with the same id, 409 on reuse, 400 without an id
+ok 46 - system setup returns 201 with the same id, 409 on reuse, 400 without an id
+  ---
+  duration_ms: 35.244986
+  type: 'test'
+  ...
+# Subtest: system report returns coverage for a known session and 404 for an unknown one
+ok 47 - system report returns coverage for a known session and 404 for an unknown one
+  ---
+  duration_ms: 4.581982
+  type: 'test'
+  ...
+# Subtest: tester runs the whole suite against our own system and stores one report
+ok 48 - tester runs the whole suite against our own system and stores one report
+  ---
+  duration_ms: 7703.768636
+  type: 'test'
+  ...
+# Subtest: tester rejects a bad target_url and forwards an unreachable target as a communication error
+ok 49 - tester rejects a bad target_url and forwards an unreachable target as a communication error
+  ---
+  duration_ms: 2.723362
+  type: 'test'
+  ...
+# Subtest: the upload page is served at the root
+ok 50 - the upload page is served at the root
+  ---
+  duration_ms: 3.017627
+  type: 'test'
+  ...
+# Subtest: the system and tester base URLs list their endpoints
+ok 51 - the system and tester base URLs list their endpoints
+  ---
+  duration_ms: 1.865409
+  type: 'test'
+  ...
+# Subtest: unknown paths still answer in JSON
+ok 52 - unknown paths still answer in JSON
+  ---
+  duration_ms: 1.567942
+  type: 'test'
+  ...
+# Subtest: O-01 every common operation has schema-conforming success and defined test-interface error responses
+ok 53 - O-01 every common operation has schema-conforming success and defined test-interface error responses
+  ---
+  duration_ms: 44.321361
+  type: 'test'
+  ...
+# Subtest: O-02 invalid request JSON identifies the correct system or tester source
+ok 54 - O-02 invalid request JSON identifies the correct system or tester source
+  ---
+  duration_ms: 4.101202
+  type: 'test'
+  ...
+# Subtest: O-03 buffers are overwritten and released after analysis success or dependency failure
+ok 55 - O-03 buffers are overwritten and released after analysis success or dependency failure
+  ---
+  duration_ms: 8.389088
+  type: 'test'
+  ...
+# Subtest: O-04 unexpected analyzer failure returns contract 503 and keeps upload content out of logs
+ok 56 - O-04 unexpected analyzer failure returns contract 503 and keeps upload content out of logs
+  ---
+  duration_ms: 2.460689
+  type: 'test'
+  ...
+# Subtest: O-05 JSON Schema catches missing issue fields and invalid page types
+ok 57 - O-05 JSON Schema catches missing issue fields and invalid page types
+  ---
+  duration_ms: 4.452426
+  type: 'test'
+  ...
+# Subtest: O-06 a document exceeding the finding budget fails with 503 instead of a truncated report
+ok 58 - O-06 a document exceeding the finding budget fails with 503 instead of a truncated report
+  ---
+  duration_ms: 859.792178
+  type: 'test'
+  ...
+# Subtest: G-01 deterministic mode provides concrete guidance without contacting a provider
+ok 59 - G-01 deterministic mode provides concrete guidance without contacting a provider
+  ---
+  duration_ms: 0.996685
+  type: 'test'
+  ...
+# Subtest: G-02 valid provider guidance preserves deterministic findings and excludes private upload content
+ok 60 - G-02 valid provider guidance preserves deterministic findings and excludes private upload content
+  ---
+  duration_ms: 17.129246
+  type: 'test'
+  ...
+# Subtest: G-03 missing credentials and invalid mode fail explicitly
+ok 61 - G-03 missing credentials and invalid mode fail explicitly
+  ---
+  duration_ms: 0.43341
+  type: 'test'
+  ...
+# Subtest: G-04 provider 429, 503, malformed JSON, incomplete IDs and duplicate IDs never return partial findings
+ok 62 - G-04 provider 429, 503, malformed JSON, incomplete IDs and duplicate IDs never return partial findings
+  ---
+  duration_ms: 1.232623
+  type: 'test'
+  ...
+# Subtest: G-05 provider timeout aborts the request
+ok 63 - G-05 provider timeout aborts the request
+  ---
+  duration_ms: 20.377981
+  type: 'test'
+  ...
+# Subtest: G-06 duplicate findings share one request; empty results require no provider call
+ok 64 - G-06 duplicate findings share one request; empty results require no provider call
+  ---
+  duration_ms: 0.789198
+  type: 'test'
+  ...
+# Subtest: U-01 report renders PDF page locations, scope and escaped snippets, with JSON export available
+ok 65 - U-01 report renders PDF page locations, scope and escaped snippets, with JSON export available
+  ---
+  duration_ms: 128.654521
+  type: 'test'
+  ...
+# Subtest: U-02 dependency error hides report download and never displays a clean result
+ok 66 - U-02 dependency error hides report download and never displays a clean result
+  ---
+  duration_ms: 22.592128
+  type: 'test'
+  ...
+1..66
+# tests 66
+# suites 0
+# pass 65
+# fail 0
+# cancelled 0
+# skipped 1
+# todo 0
+# duration_ms 19224.195466
+
+=============================== Coverage summary ===============================
+Statements   : 96.11% ( 1090/1134 )
+Branches     : 82.17% ( 415/505 )
+Functions    : 97.75% ( 87/89 )
+Lines        : 96.11% ( 1090/1134 )
+================================================================================

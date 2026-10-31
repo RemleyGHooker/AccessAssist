@@ -1,64 +1,49 @@
-// Accessibility analyzer.
-// Phase 3 ships two rule-based checks for HTML so the report format is exercised
-// end to end. The full rule set, PDF/Word checks, and AI-written fix suggestions
-// arrive in Phase 4 (REQ-04 to REQ-06).
+import { Worker } from 'node:worker_threads';
+import { UnprocessableFileError, DependencyUnavailableError } from './errors.js';
+import { remediate } from './remediation.js';
 
-export class DependencyUnavailableError extends Error {}
+export { DependencyUnavailableError } from './errors.js';
+const MAX_ACTIVE = 2;
+let active = 0;
 
-const NO_CHECKS_YET =
-  'This file type was accepted, but automated accessibility checks for it are not available yet. '
-  + 'No evaluation was performed, so this is not a compliance result.';
-
-const NO_VIOLATIONS =
-  'No supported violations were detected. This does not certify full ADA or WCAG compliance.';
-
-function lineOf(text, index) {
-  return text.slice(0, index).split('\n').length;
-}
-
-function checkHtml(text) {
-  const issues = [];
-
-  // WCAG 2.1 SC 1.1.1 Non-text Content: every image needs a text alternative.
-  for (const match of text.matchAll(/<img\b[^>]*>/gi)) {
-    if (!/\balt\s*=/i.test(match[0])) {
-      issues.push({
-        wcag_criterion: '1.1.1',
-        location: { line: lineOf(text, match.index), snippet: match[0].slice(0, 120) },
-        severity: 'critical',
-        description: 'Image has no alt attribute, so screen reader users get no description of it.',
-        suggested_fix: 'Add a descriptive alt attribute, or alt="" if the image is purely decorative.',
-      });
-    }
-  }
-
-  // WCAG 2.1 SC 3.1.1 Language of Page: the page must declare its language.
-  const htmlTag = text.match(/<html\b[^>]*>/i);
-  if (htmlTag && !/\blang\s*=/i.test(htmlTag[0])) {
-    issues.push({
-      wcag_criterion: '3.1.1',
-      location: { line: lineOf(text, htmlTag.index), snippet: htmlTag[0].slice(0, 120) },
-      severity: 'serious',
-      description: 'The page does not declare its language, so screen readers may mispronounce it.',
-      suggested_fix: 'Add a lang attribute to the html element, for example <html lang="en">.',
+// Each request owns a bounded worker. Termination discards the parsed document and stops CPU-heavy inputs.
+function runChecks(data) {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('./analysis-worker.js', import.meta.url), {
+      workerData: data, resourceLimits: { maxOldGenerationSizeMb: 512, maxYoungGenerationSizeMb: 32 },
     });
-  }
-
-  return { issues, checks_run: ['1.1.1', '3.1.1'] };
+    const timer = setTimeout(() => finish(new DependencyUnavailableError('Analysis exceeded its 15-second processing budget.')), 15_000);
+    let settled = false;
+    const finish = (err, result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      worker.terminate().then(() => err ? reject(err) : resolve(result), reject);
+    };
+    worker.once('message', (message) => {
+      if (message.error) {
+        const ErrorType = message.error === 'UnprocessableFileError' ? UnprocessableFileError : DependencyUnavailableError;
+        finish(new ErrorType(message.message));
+      } else finish(null, message.result);
+    });
+    worker.once('error', () => finish(new DependencyUnavailableError('Analysis worker failed.')));
+    worker.once('exit', () => { if (!settled) finish(new DependencyUnavailableError('Analysis worker stopped without a result.')); });
+  });
 }
 
 export async function analyze({ mime, buffer, wcagLevel }) {
-  if (process.env.SIMULATE_DEPENDENCY_FAILURE === 'true') {
-    // Fault injection for REQ-09 tests: behaves like an outside service outage.
+  if (process.env.NODE_ENV === 'test' && process.env.SIMULATE_DEPENDENCY_FAILURE === 'true') {
     throw new DependencyUnavailableError('Simulated dependency outage');
   }
-
-  if (mime !== 'text/html') {
-    return { wcag_level: wcagLevel, issues: [], checks_run: [], no_violations_detected: false, message: NO_CHECKS_YET };
-  }
-
-  const { issues, checks_run } = checkHtml(buffer.toString('utf8'));
-  const result = { wcag_level: wcagLevel, issues, checks_run, no_violations_detected: issues.length === 0 };
-  if (issues.length === 0) result.message = NO_VIOLATIONS;
-  return result;
+  if (active >= MAX_ACTIVE) throw new DependencyUnavailableError('Analysis capacity is busy.');
+  active++;
+  try {
+    const { issues, checks_run, scope } = await runChecks({ mime, buffer, wcagLevel });
+    const finalIssues = await remediate(issues);
+    return {
+      wcag_level: wcagLevel, issues: finalIssues, checks_run,
+      no_violations_detected: finalIssues.length === 0,
+      message: `${finalIssues.length === 0 ? 'No supported violations were detected. ' : ''}${scope} This does not certify full ADA or WCAG compliance.`,
+    };
+  } finally { active--; }
 }

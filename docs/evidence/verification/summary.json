@@ -1,0 +1,57 @@
+{
+  "collected_at": "2026-10-31T22:07:28.039387+00:00",
+  "scope": "Local working-tree verification; not a deployed Phase 4 or GitHub CI run.",
+  "branch": "phase4-completion",
+  "base_commit": "495707b827e97fcc8c7af8a426aadc4418372174",
+  "source_fingerprint": "d66e1eef41a914cb83417db8f687deddb0268808e2702529951490bb973f83ba",
+  "full_suite": {
+    "tests": 66,
+    "passed": 65,
+    "failed": 0,
+    "skipped": 1,
+    "skip_reason": "T-13 requires HTTPS; local server uses HTTP."
+  },
+  "coverage": {
+    "scope": "All src/**/*.js; aggregate backend suite, not deployed per-session coverage",
+    "lines_and_statements": {
+      "covered": 1090,
+      "total": 1134,
+      "percent": 96.11
+    },
+    "branches": {
+      "covered": 415,
+      "total": 505,
+      "percent": 82.17
+    },
+    "functions": {
+      "covered": 87,
+      "total": 89,
+      "percent": 97.75
+    }
+  },
+  "local_contract_suite": {
+    "tests": 30,
+    "passed": 29,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 1
+  },
+  "protocol_probes": {
+    "total": 8,
+    "schema_valid": 8
+  },
+  "checks": {
+    "eslint": "passed; zero warnings",
+    "openapi": "passed; one existing localhost-server advisory",
+    "production_audit": "passed; zero vulnerabilities",
+    "git_diff_check": "passed"
+  },
+  "artifact_sha256": {
+    "tests-and-coverage.txt": "580b71d022d9330b84a3830ae20cdc499588a313a03697c34fc733335e2f8e4e",
+    "eslint.txt": "aa65a6ea39aad11617220a1c95da7b2e47755082834e1ef29d122ad0b900c0f9",
+    "openapi.txt": "c5ad3a3893a3918cadebc0d4347554bfaab572ad225750af6e4ac6241163859c",
+    "production-audit.txt": "13b292311409735269e6044fabd39621ea4e72184d4fc6afb9e25947cece8137",
+    "local-contract-run.txt": "947624a5501aaaac74097392b9078046ccb42784cc8ea1be23e7b33f1b2534a8",
+    "lcov.info": "550ff6f85c607e373174d02385cccda08c98c46bb74aa1cfc8f7a7787b4e897f"
+  }
+}

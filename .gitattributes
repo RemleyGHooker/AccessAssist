@@ -1,0 +1,8 @@
+# Generated document assets must not be treated as text diffs.
+*.pdf binary
+*.docx binary
+*.png binary
+
+# Markdown uses trailing spaces for hard line breaks; evidence keeps raw CLI output.
+*.md whitespace=-blank-at-eol
+docs/evidence/**/*.txt whitespace=-blank-at-eof

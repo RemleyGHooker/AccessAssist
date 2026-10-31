@@ -4,11 +4,14 @@
 // not from what our own system happens to return.
 
 import { fixtures } from './fixtures.js';
+import { validateResponse } from './contract.js';
 
 const ERROR_CODES = { 400: ['MISSING_FILE', 'INVALID_WCAG_LEVEL'], 413: ['FILE_TOO_LARGE'], 415: ['UNSUPPORTED_MEDIA_TYPE'], 422: ['UNPROCESSABLE_FILE'], 503: ['PROCESSING_UNAVAILABLE'] };
 const SEVERITIES = ['critical', 'serious', 'moderate', 'minor'];
 
 const TIMEOUT_MS = 30_000; // REQ-12 limit
+class ContractMismatchError extends Error {}
+class SystemResponseError extends Error {}
 
 async function call(base, path, init = {}) {
   const started = Date.now();
@@ -16,6 +19,9 @@ async function call(base, path, init = {}) {
   const text = await res.text();
   let body = null;
   try { body = JSON.parse(text); } catch { /* non-JSON body is itself a conformance failure */ }
+  if (res.status >= 500 && res.status !== 503) throw new SystemResponseError(`Target returned HTTP ${res.status}.`);
+  const conformance = validateResponse(init.method || 'GET', path.split('?')[0], res.status, body);
+  if (!conformance.valid) throw new ContractMismatchError(conformance.message);
   return { status: res.status, body, ms: Date.now() - started };
 }
 
@@ -56,6 +62,26 @@ function isResult(r) {
     return fail('An empty issues array must come with an explicit message (REQ-08).');
   }
   return pass(`Received 200 with ${r.body.issues.length} issue(s) in the contract format.`);
+}
+
+async function expectCriteria(base, fixture, criteria, fields = {}) {
+  const r = await analyze(base, fixture, fields);
+  const result = isResult(r);
+  if (result.outcome !== 'pass') return result;
+  const found = new Set(r.body.issues.map((i) => i.wcag_criterion));
+  return criteria.every((criterion) => found.has(criterion))
+    ? pass(`Detected expected WCAG ${criteria.join(', ')} with structured findings.`)
+    : fail(`Expected ${criteria.join(', ')}; received ${[...found].join(', ')}.`);
+}
+
+async function expectClean(base, fixture) {
+  const r = await analyze(base, fixture);
+  const result = isResult(r);
+  if (result.outcome !== 'pass') return result;
+  return r.body.issues.length === 0 && /no supported violations/i.test(r.body.message || '')
+    && r.body.checks_run?.length > 0 && r.body.no_violations_detected === true
+    ? pass('Supported checks ran and returned an explicit scoped no-violations result.')
+    : fail(`Expected a checked, clean result; received ${JSON.stringify(r.body)}.`);
 }
 
 // ---- the suite ----
@@ -145,6 +171,56 @@ export const cases = [
     } },
   { id: 'T-16', ac: ['AC-09'], component: 'analyze', name: 'Dependency outage returns 503, never partial results', local: true,
     run: async (b) => isError(await analyze(b, fixtures.missingAltHtml), 503, 'PROCESSING_UNAVAILABLE') },
+  { id: 'T-17', ac: ['AC-01'], component: 'analyze', name: 'Valid DOCX is accepted and evaluated',
+    run: async (b) => isResult(await analyze(b, fixtures.validDocx)) },
+  { id: 'T-18', ac: ['AC-04', 'AC-05'], component: 'analyze', name: 'HTML low contrast maps to WCAG 1.4.3 at AA',
+    run: (b) => expectCriteria(b, fixtures.contrastHtml, ['1.4.3']) },
+  { id: 'T-19', ac: ['AC-04', 'AC-05'], component: 'analyze', name: 'Level A excludes AA-only contrast findings',
+    run: async (b) => {
+      const r = await analyze(b, fixtures.contrastHtml, { wcag_level: 'A' });
+      const result = isResult(r);
+      if (result.outcome !== 'pass') return result;
+      return r.body.issues.some((i) => i.wcag_criterion === '1.4.3') || r.body.checks_run?.includes('1.4.3')
+        ? fail('AA-only contrast was evaluated at level A.') : pass('AA-only contrast is excluded at level A.');
+    } },
+  { id: 'T-20', ac: ['AC-04', 'AC-05', 'AC-07'], component: 'analyze', name: 'PDF Figure without Alt maps to 1.1.1 with page location',
+    run: async (b) => {
+      const r = await analyze(b, fixtures.missingAltPdf);
+      const result = isResult(r);
+      if (result.outcome !== 'pass') return result;
+      return r.body.issues.some((i) => i.wcag_criterion === '1.1.1' && i.location?.page === 1)
+        ? pass('Missing PDF alternate text is located on page 1.') : fail('Missing 1.1.1 finding with page 1.');
+    } },
+  { id: 'T-21', ac: ['AC-04', 'AC-05'], component: 'analyze', name: 'DOCX picture without text alternative maps to 1.1.1',
+    run: (b) => expectCriteria(b, fixtures.missingAltDocx, ['1.1.1']) },
+  { id: 'T-22', ac: ['AC-08'], component: 'analyze', name: 'Clean PDF returns an explicit scoped no-violations result',
+    run: (b) => expectClean(b, fixtures.validPdf) },
+  { id: 'T-23', ac: ['AC-08'], component: 'analyze', name: 'Clean DOCX returns an explicit scoped no-violations result',
+    run: (b) => expectClean(b, fixtures.validDocx) },
+  { id: 'T-24', ac: ['AC-03'], component: 'validation', name: 'DOCX with malformed XML is rejected with 422',
+    run: async (b) => isError(await analyze(b, fixtures.malformedDocx), 422, 'UNPROCESSABLE_FILE') },
+  { id: 'T-25', ac: ['AC-03'], component: 'validation', name: 'Fake PDF with header and EOF but no objects is rejected with 422',
+    run: async (b) => isError(await analyze(b, fixtures.fakePdf), 422, 'UNPROCESSABLE_FILE') },
+  { id: 'T-26', ac: ['AC-04', 'AC-05'], component: 'analyze', name: 'Missing HTML language maps to 3.1.1',
+    run: (b) => expectCriteria(b, fixtures.missingLanguageHtml, ['3.1.1']) },
+  { id: 'T-27', ac: ['AC-04', 'AC-05'], component: 'analyze', name: 'An unnamed functional image is not treated as decorative',
+    run: (b) => expectCriteria(b, fixtures.functionalImageHtml, ['1.1.1']) },
+  { id: 'T-28', ac: ['AC-04', 'AC-05'], component: 'analyze', name: 'Missing form label and button name map to 1.3.1 and 4.1.2',
+    run: (b) => expectCriteria(b, fixtures.formHtml, ['1.3.1', '4.1.2']) },
+  { id: 'T-29', ac: ['AC-04', 'AC-05'], component: 'analyze', name: 'PDF missing structure, language and title yields mapped findings',
+    run: (b) => expectCriteria(b, fixtures.untaggedPdf, ['1.3.1', '3.1.1', '2.4.2']) },
+  { id: 'T-30', ac: ['AC-06', 'AC-07'], component: 'analyze', name: 'Every PDF/DOCX issue includes a concrete repair instruction and valid location',
+    run: async (b) => {
+      for (const fixture of [fixtures.missingAltPdf, fixtures.missingAltDocx]) {
+        const r = await analyze(b, fixture);
+        const result = isResult(r);
+        if (result.outcome !== 'pass') return result;
+        if (!r.body.issues.length || !r.body.issues.every((i) => i.suggested_fix.trim().length >= 20 && i.location !== null)) {
+          return fail('Missing a location or substantive repair instruction.');
+        }
+      }
+      return pass('Both formats return located findings with repair instructions; semantic quality still requires human review.');
+    } },
 ];
 
 // Pod component list used for component coverage (proposed to the pod in Phase 3).
@@ -155,6 +231,8 @@ export async function runCase(c, base) {
   try {
     return await c.run(base);
   } catch (e) {
+    if (e instanceof ContractMismatchError) return fail(`${c.name}: ${e.message}`);
+    if (e instanceof SystemResponseError) return { outcome: 'error', source: 'system', message: `${c.name}: ${e.message}` };
     const timeout = e?.name === 'TimeoutError' || e?.name === 'AbortError';
     return { outcome: 'error', source: timeout || e?.cause ? 'communication' : 'tester', message: `${c.name}: ${e?.message ?? e}` };
   }

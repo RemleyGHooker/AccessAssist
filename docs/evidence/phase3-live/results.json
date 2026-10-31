@@ -1,0 +1,450 @@
+{
+  "started_at": "2026-10-31T21:56:15.390Z",
+  "started_at_shanghai": "2026-11-01 05:56:15",
+  "target": "https://accessassist-git-365255122806.europe-west1.run.app/system",
+  "execution": "deployed service",
+  "results": [
+    {
+      "id": "T-01",
+      "name": "Accessible HTML file is accepted and evaluated",
+      "ac": [
+        "AC-01"
+      ],
+      "outcome": "pass",
+      "message": "Received 200 with 0 issue(s) in the contract format."
+    },
+    {
+      "id": "T-02",
+      "name": "Valid PDF is accepted",
+      "ac": [
+        "AC-01"
+      ],
+      "outcome": "pass",
+      "message": "Received 200 with 0 issue(s) in the contract format."
+    },
+    {
+      "id": "T-03",
+      "name": "GET /formats lists types and a limit of at least 10 MB",
+      "ac": [
+        "AC-02"
+      ],
+      "outcome": "pass",
+      "message": "Received a non-empty type list and max_file_size_mb >= 10."
+    },
+    {
+      "id": "T-04",
+      "name": "Executable file is rejected as unsupported (415)",
+      "ac": [
+        "AC-02"
+      ],
+      "outcome": "pass",
+      "message": "Expected 415 UNSUPPORTED_MEDIA_TYPE; received 415 UNSUPPORTED_MEDIA_TYPE."
+    },
+    {
+      "id": "T-05",
+      "name": "HTML with a missing alt attribute is reported under 1.1.1",
+      "ac": [
+        "AC-04",
+        "AC-05",
+        "AC-06",
+        "AC-07"
+      ],
+      "outcome": "pass",
+      "message": "Expected a 1.1.1 issue; received one."
+    },
+    {
+      "id": "T-06",
+      "name": "Empty file is rejected (422)",
+      "ac": [
+        "AC-03"
+      ],
+      "outcome": "pass",
+      "message": "Expected 422 UNPROCESSABLE_FILE; received 422 UNPROCESSABLE_FILE."
+    },
+    {
+      "id": "T-07",
+      "name": "Truncated PDF is rejected (422)",
+      "ac": [
+        "AC-03"
+      ],
+      "outcome": "pass",
+      "message": "Expected 422 UNPROCESSABLE_FILE; received 422 UNPROCESSABLE_FILE."
+    },
+    {
+      "id": "T-08",
+      "name": "Request with no file is rejected (400)",
+      "ac": [
+        "AC-13"
+      ],
+      "outcome": "pass",
+      "message": "Expected 400 MISSING_FILE; received 400 MISSING_FILE."
+    },
+    {
+      "id": "T-09",
+      "name": "wcag_level \"AAA\" is rejected (400)",
+      "ac": [
+        "AC-13"
+      ],
+      "outcome": "pass",
+      "message": "Expected 400 INVALID_WCAG_LEVEL; received 400 INVALID_WCAG_LEVEL."
+    },
+    {
+      "id": "T-10",
+      "name": "File one byte over 10 MB is rejected (413)",
+      "ac": [
+        "AC-02"
+      ],
+      "outcome": "pass",
+      "message": "Expected 413 FILE_TOO_LARGE; received 413 FILE_TOO_LARGE."
+    },
+    {
+      "id": "T-11",
+      "name": "File of exactly 10 MB is accepted within 30 s",
+      "ac": [
+        "AC-02",
+        "AC-12"
+      ],
+      "outcome": "pass",
+      "message": "Accepted in 1654 ms."
+    },
+    {
+      "id": "T-12",
+      "name": "GET /health answers {\"status\":\"ok\"}",
+      "ac": [
+        "AC-13"
+      ],
+      "outcome": "pass",
+      "message": "Received 200 {\"status\":\"ok\"}."
+    },
+    {
+      "id": "T-13",
+      "name": "Plain HTTP is refused or redirected to HTTPS",
+      "ac": [
+        "AC-11"
+      ],
+      "outcome": "pass",
+      "message": "Plain HTTP redirected to HTTPS (302)."
+    },
+    {
+      "id": "T-14",
+      "name": "Every error has code and message and never issues",
+      "ac": [
+        "AC-13"
+      ],
+      "outcome": "pass",
+      "message": "All three error responses share the { code, message } shape with no issues array."
+    },
+    {
+      "id": "T-15",
+      "name": "Clean file gets an explicit no-violations message",
+      "ac": [
+        "AC-08",
+        "AC-13"
+      ],
+      "outcome": "pass",
+      "message": "Received an empty issues array with an explicit no-violations message."
+    },
+    {
+      "id": "T-16",
+      "name": "Dependency outage returns 503, never partial results",
+      "ac": [
+        "AC-09"
+      ],
+      "outcome": "skip",
+      "message": "Requires local fault injection."
+    },
+    {
+      "id": "T-17",
+      "name": "Valid DOCX is accepted and evaluated",
+      "ac": [
+        "AC-01"
+      ],
+      "outcome": "pass",
+      "message": "Received 200 with 0 issue(s) in the contract format."
+    },
+    {
+      "id": "T-18",
+      "name": "HTML low contrast maps to WCAG 1.4.3 at AA",
+      "ac": [
+        "AC-04",
+        "AC-05"
+      ],
+      "outcome": "fail",
+      "message": "Expected 1.4.3; received ."
+    },
+    {
+      "id": "T-19",
+      "name": "Level A excludes AA-only contrast findings",
+      "ac": [
+        "AC-04",
+        "AC-05"
+      ],
+      "outcome": "pass",
+      "message": "AA-only contrast is excluded at level A."
+    },
+    {
+      "id": "T-20",
+      "name": "PDF Figure without Alt maps to 1.1.1 with page location",
+      "ac": [
+        "AC-04",
+        "AC-05",
+        "AC-07"
+      ],
+      "outcome": "fail",
+      "message": "Missing 1.1.1 finding with page 1."
+    },
+    {
+      "id": "T-21",
+      "name": "DOCX picture without text alternative maps to 1.1.1",
+      "ac": [
+        "AC-04",
+        "AC-05"
+      ],
+      "outcome": "fail",
+      "message": "Expected 1.1.1; received ."
+    },
+    {
+      "id": "T-22",
+      "name": "Clean PDF returns an explicit scoped no-violations result",
+      "ac": [
+        "AC-08"
+      ],
+      "outcome": "fail",
+      "message": "Expected a checked, clean result; received {\"wcag_level\":\"AA\",\"issues\":[],\"checks_run\":[],\"no_violations_detected\":false,\"message\":\"This file type was accepted, but automated accessibility checks for it are not available yet. No evaluation was performed, so this is not a compliance result.\"}."
+    },
+    {
+      "id": "T-23",
+      "name": "Clean DOCX returns an explicit scoped no-violations result",
+      "ac": [
+        "AC-08"
+      ],
+      "outcome": "fail",
+      "message": "Expected a checked, clean result; received {\"wcag_level\":\"AA\",\"issues\":[],\"checks_run\":[],\"no_violations_detected\":false,\"message\":\"This file type was accepted, but automated accessibility checks for it are not available yet. No evaluation was performed, so this is not a compliance result.\"}."
+    },
+    {
+      "id": "T-24",
+      "name": "DOCX with malformed XML is rejected with 422",
+      "ac": [
+        "AC-03"
+      ],
+      "outcome": "fail",
+      "message": "Expected HTTP 422; received 200."
+    },
+    {
+      "id": "T-25",
+      "name": "Fake PDF with header and EOF but no objects is rejected with 422",
+      "ac": [
+        "AC-03"
+      ],
+      "outcome": "fail",
+      "message": "Expected HTTP 422; received 200."
+    },
+    {
+      "id": "T-26",
+      "name": "Missing HTML language maps to 3.1.1",
+      "ac": [
+        "AC-04",
+        "AC-05"
+      ],
+      "outcome": "pass",
+      "message": "Detected expected WCAG 3.1.1 with structured findings."
+    },
+    {
+      "id": "T-27",
+      "name": "An unnamed functional image is not treated as decorative",
+      "ac": [
+        "AC-04",
+        "AC-05"
+      ],
+      "outcome": "fail",
+      "message": "Expected 1.1.1; received ."
+    },
+    {
+      "id": "T-28",
+      "name": "Missing form label and button name map to 1.3.1 and 4.1.2",
+      "ac": [
+        "AC-04",
+        "AC-05"
+      ],
+      "outcome": "fail",
+      "message": "Expected 1.3.1, 4.1.2; received ."
+    },
+    {
+      "id": "T-29",
+      "name": "PDF missing structure, language and title yields mapped findings",
+      "ac": [
+        "AC-04",
+        "AC-05"
+      ],
+      "outcome": "fail",
+      "message": "Expected 1.3.1, 3.1.1, 2.4.2; received ."
+    },
+    {
+      "id": "T-30",
+      "name": "Every PDF/DOCX issue includes a concrete repair instruction and valid location",
+      "ac": [
+        "AC-06",
+        "AC-07"
+      ],
+      "outcome": "fail",
+      "message": "Missing a location or substantive repair instruction."
+    }
+  ],
+  "operations": [
+    {
+      "method": "GET",
+      "path": "/health",
+      "status": 200,
+      "body": {
+        "status": "ok"
+      },
+      "valid": true,
+      "message": "Response matches OpenAPI."
+    },
+    {
+      "method": "GET",
+      "path": "/formats",
+      "status": 200,
+      "body": {
+        "supported_mime_types": [
+          "text/html",
+          "application/pdf",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ],
+        "max_file_size_mb": 10
+      },
+      "valid": true,
+      "message": "Response matches OpenAPI."
+    },
+    {
+      "method": "POST",
+      "path": "/test/setup",
+      "status": 201,
+      "body": {
+        "session_id": "evidence-1793483775390"
+      },
+      "valid": true,
+      "message": "Response matches OpenAPI."
+    },
+    {
+      "method": "POST",
+      "path": "/test/setup",
+      "status": 409,
+      "body": {
+        "message": "Session already exists.",
+        "source": "system"
+      },
+      "valid": true,
+      "message": "Response matches OpenAPI."
+    },
+    {
+      "method": "POST",
+      "path": "/test/setup",
+      "status": 400,
+      "body": {
+        "message": "session_id is required.",
+        "source": "system"
+      },
+      "valid": true,
+      "message": "Response matches OpenAPI."
+    },
+    {
+      "method": "GET",
+      "path": "/test/report?session_id=evidence-1793483775390",
+      "status": 200,
+      "body": {
+        "session_id": "evidence-1793483775390",
+        "coverage": {
+          "code": {
+            "covered": null,
+            "total": null,
+            "basis": "Source lines; live per-session instrumentation is not enabled on the deployed service. CI reports line coverage for every commit."
+          }
+        }
+      },
+      "valid": true,
+      "message": "Response matches OpenAPI."
+    },
+    {
+      "method": "GET",
+      "path": "/test/report?session_id=unknown-evidence-id",
+      "status": 404,
+      "body": {
+        "message": "Unknown session.",
+        "source": "system"
+      },
+      "valid": true,
+      "message": "Response matches OpenAPI."
+    },
+    {
+      "method": "GET",
+      "path": "/test/report",
+      "status": 400,
+      "body": {
+        "message": "session_id is required.",
+        "source": "system"
+      },
+      "valid": true,
+      "message": "Response matches OpenAPI."
+    }
+  ],
+  "health": {
+    "status": 200,
+    "body": {
+      "status": "ok"
+    },
+    "version": "accessassist-git-00008-f92"
+  },
+  "about": {
+    "service": "AccessAssist (ECE 30861 Team 19)",
+    "system": "/system",
+    "tester": "/tester",
+    "version": "accessassist-git-00008-f92"
+  },
+  "finished_at": "2026-10-31T21:56:23.379Z",
+  "totals": {
+    "tests": 30,
+    "passed": 18,
+    "failed": 11,
+    "errors": 0,
+    "skipped": 1
+  },
+  "base_commit": "495707b827e97fcc8c7af8a426aadc4418372174",
+  "source_manifest": {
+    ".github/workflows/ci.yml": "9d25d04f9a2fbaa20fec1311ad2ae2fdec25a39f12c676d88be46cef784de7d2",
+    ".github/workflows/live-check.yml": "34ca1bd143a60f79cb8fc7ba7519da35765247e0d3460a6c0c53f657110a95f6",
+    "Dockerfile": "a5d5febd4b32927d8209ff8aff9c7a8bda7c61dee5b0e20e6639b62c1048b43f",
+    "openapi.yaml": "1d2f73c1fddca515754fad9a52fa57ac47678ed34eba65b823fd546c0caf443a",
+    "package-lock.json": "71490e2ebee2a87631057d7807269a1527f0769c933207aade7130389d7b9b88",
+    "package.json": "1748ee4e96419912220de19e38e0c800892f50f1ef63bee3a520ca8e5bc69767",
+    "public/index.html": "bd41ad1132c52d8c34df447b40624cd40a6834c6d6124d0cd0c9f785f54252c4",
+    "public/samples/missingAltDocx.docx": "f4df3774cdd86333c1d04ba72996ea929fa8c3eed6a714d76173e9213010dfcd",
+    "public/samples/missingAltPdf.pdf": "a87dc05476f67e98be7cc5e0ad5d05777fc3b40ad5972d9d211ff71ee542ae65",
+    "public/samples/validDocx.docx": "4358b90fb61c33c1c3d6157a6d77041af29d42065b790eb17f5714dfec31de9d",
+    "public/samples/validPdf.pdf": "0d27f15327df21d677970c02f139bd8854a0de0ca8659e9e00c9011a22ae8a48",
+    "scripts/collect-evidence.js": "b17b973d12df36b01d807ada39238b66bfc9b2fb31fa36c22f4a2f68fbad8b07",
+    "scripts/export-samples.js": "012e87d99de201665a12337ed0e100267707e29b2cd603033caca4438bc1e917",
+    "src/analysis-worker.js": "1551496416fb3e9d7a29d401d8b52bc2630e4449c73b9700ab9fe852c6c699f8",
+    "src/analyzer.js": "6895d3e3a55b6f4663c019f4ee614787ef5a1be5e0cda08749354e7d5ffc938c",
+    "src/app.js": "58d3c6be081dd3b0e2a83a2f6fc82f7a7f332e03f19a03fe178e9460d01475f7",
+    "src/cases.js": "62b5c2cd50382dc3a92ce28b61d16ab075bff6ed5d3c8d6f21e1e751d19a1758",
+    "src/checks/common.js": "c32bb159175979ffa2ee603cb7ea456dc80562a6d05f55b76627d1ff1586587c",
+    "src/checks/docx.js": "c7578cc4d188aca8955bc606952442c25d48b2def583d1459ed58b1e2522594d",
+    "src/checks/html.js": "540c3a17388a50c0080776784f11061a66eda24a3cd73ddbbc0d34df879c5291",
+    "src/checks/pdf.js": "9f6d5dd15827fccbce9f586a28c363f0d4f42488c8062e8e77715d4b8482f8a2",
+    "src/contract.js": "53c6d9eedcaf3ddb3a8f75850453198d2a29d096f37d167a2832e52e77b0aaae",
+    "src/errors.js": "6c6aa89334333f896aee1601a6b98efe59fdc43c1c1beba1dd3382bf710b46e3",
+    "src/fixtures.js": "a4857dcf869daea305fdb0f6a3843771a7651d1d1e9e9933cf2cfeddb0cd3775",
+    "src/formats.js": "2866c1ad964daae16250c34903fbae72f16cd128faa7606850e4c30953ad07c2",
+    "src/remediation.js": "db6c9b0194512558fa28d4f9a2fd6b2d81b4ff607710ce2f59f1991703211d7b",
+    "src/server.js": "d73c6c3a5bbcfd2deff856b9d0226248498522d55a0bbbed07432330ec4f770a",
+    "src/system.js": "2b1213c5ddfc5a408aa9b7e035e19adba208374fa71657e283d89c791c68c0f5",
+    "src/tester.js": "d2090dc14394991cb05f902df3f63795233b0cb4c8e7211c7581a4968226ca06",
+    "test/analysis.test.js": "c672039c0a593cdff692ce7ec9a82821201520f5e31869aeab896a21888158c0",
+    "test/contract.test.js": "defd9e10c07ff87b6eb5cc0583a8515b35b8d0ff414d827e2841b3828a88dc80",
+    "test/interface.test.js": "71e08059f7fe33f525907041940b837490a2f8d5bda75c1dd111f5b27db3cf9f",
+    "test/operations.test.js": "71ada1490b4f5d4e94d675dc7593c84aef4109d6460866d8888b933b74dca999",
+    "test/remediation.test.js": "4a6eeb4e66b9d555ac1dab41ab7f430366d231ef196e3b9802ffc6aff3c0de10"
+  },
+  "source_fingerprint": "94bf2bb3789fbb61c46cfa7086cda161e93a78aecaaf0f4103e90dd340ec286a"
+}

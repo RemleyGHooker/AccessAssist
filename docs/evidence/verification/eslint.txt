@@ -1,0 +1,4 @@
+
+> accessassist@0.4.0 lint
+> eslint . --max-warnings 0
+

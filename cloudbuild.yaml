@@ -1,0 +1,50 @@
+# Configure the existing Cloud Build trigger to use this file after team review.
+# For manual builds supply _GIT_SHA with `git rev-parse HEAD`; default UNSET deliberately fails.
+substitutions:
+  _REGION: europe-west1
+  _REPOSITORY: accessassist
+  _SERVICE: accessassist-git
+  _GIT_SHA: UNSET
+  _REMEDIATION_MODE: deterministic
+steps:
+  - name: node:22
+    id: validate
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        [[ '${_GIT_SHA}' =~ ^[0-9a-f]{40}$$ ]] || { echo 'A full commit SHA is required'; exit 1; }
+        npm ci
+        npm run lint
+        npm run lint:openapi
+        npm run audit
+        npm run test:coverage
+  - name: gcr.io/cloud-builders/docker
+    id: build
+    args: [build, --build-arg, 'GIT_SHA=${_GIT_SHA}', -t, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:${_GIT_SHA}', .]
+  - name: gcr.io/cloud-builders/docker
+    id: push
+    args: [push, '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:${_GIT_SHA}']
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    id: deploy
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - '${_SERVICE}'
+      - '--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:${_GIT_SHA}'
+      - '--region=${_REGION}'
+      - --allow-unauthenticated
+      - --memory=2Gi
+      - --cpu=1
+      - --concurrency=4
+      - --min-instances=0
+      - --max-instances=1
+      - --timeout=60
+      - '--update-env-vars=GIT_SHA=${_GIT_SHA},REMEDIATION_MODE=${_REMEDIATION_MODE}'
+      - '--labels=commit-sha=${_GIT_SHA}'
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_SERVICE}:${_GIT_SHA}'
+options:
+  logging: CLOUD_LOGGING_ONLY

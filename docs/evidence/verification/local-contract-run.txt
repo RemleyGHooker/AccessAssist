@@ -1,0 +1,35 @@
+
+> accessassist@0.4.0 evidence
+> NODE_ENV=test node scripts/collect-evidence.js
+
+T-01 pass: Received 200 with 0 issue(s) in the contract format.
+T-02 pass: Received 200 with 0 issue(s) in the contract format.
+T-03 pass: Received a non-empty type list and max_file_size_mb >= 10.
+T-04 pass: Expected 415 UNSUPPORTED_MEDIA_TYPE; received 415 UNSUPPORTED_MEDIA_TYPE.
+T-05 pass: Expected a 1.1.1 issue; received one.
+T-06 pass: Expected 422 UNPROCESSABLE_FILE; received 422 UNPROCESSABLE_FILE.
+T-07 pass: Expected 422 UNPROCESSABLE_FILE; received 422 UNPROCESSABLE_FILE.
+T-08 pass: Expected 400 MISSING_FILE; received 400 MISSING_FILE.
+T-09 pass: Expected 400 INVALID_WCAG_LEVEL; received 400 INVALID_WCAG_LEVEL.
+T-10 pass: Expected 413 FILE_TOO_LARGE; received 413 FILE_TOO_LARGE.
+T-11 pass: Accepted in 1537 ms.
+T-12 pass: Received 200 {"status":"ok"}.
+T-13 skip: Target is not served over HTTPS (local run); check applies to deployed services only.
+T-14 pass: All three error responses share the { code, message } shape with no issues array.
+T-15 pass: Received an empty issues array with an explicit no-violations message.
+T-16 pass: Expected 503 PROCESSING_UNAVAILABLE; received 503 PROCESSING_UNAVAILABLE.
+T-17 pass: Received 200 with 0 issue(s) in the contract format.
+T-18 pass: Detected expected WCAG 1.4.3 with structured findings.
+T-19 pass: AA-only contrast is excluded at level A.
+T-20 pass: Missing PDF alternate text is located on page 1.
+T-21 pass: Detected expected WCAG 1.1.1 with structured findings.
+T-22 pass: Supported checks ran and returned an explicit scoped no-violations result.
+T-23 pass: Supported checks ran and returned an explicit scoped no-violations result.
+T-24 pass: Expected 422 UNPROCESSABLE_FILE; received 422 UNPROCESSABLE_FILE.
+T-25 pass: Expected 422 UNPROCESSABLE_FILE; received 422 UNPROCESSABLE_FILE.
+T-26 pass: Detected expected WCAG 3.1.1 with structured findings.
+T-27 pass: Detected expected WCAG 1.1.1 with structured findings.
+T-28 pass: Detected expected WCAG 1.3.1, 4.1.2 with structured findings.
+T-29 pass: Detected expected WCAG 1.3.1, 3.1.1, 2.4.2 with structured findings.
+T-30 pass: Both formats return located findings with repair instructions; semantic quality still requires human review.
+{"tests":30,"passed":29,"failed":0,"errors":0,"skipped":1,"evidence":"/home/ubuntu/ece30861/AccessAssist/docs/evidence/local"}

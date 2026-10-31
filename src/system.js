@@ -6,6 +6,7 @@ import express from 'express';
 import multer from 'multer';
 import { MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_MB, SUPPORTED, SUPPORTED_MIME_TYPES, resolveType } from './formats.js';
 import { analyze, DependencyUnavailableError } from './analyzer.js';
+import { UnprocessableFileError } from './errors.js';
 
 const WCAG_LEVELS = ['A', 'AA'];
 
@@ -14,14 +15,20 @@ export function sendError(res, status, code, message) {
   return res.status(status).json({ code, message });
 }
 
-export function createSystemRouter() {
+function clearUpload(req) {
+  if (req.file?.buffer) {
+    req.file.buffer.fill(0);
+    req.file.buffer = null;
+  }
+}
+
+export function createSystemRouter({ analyzeDocument = analyze } = {}) {
   const router = express.Router();
   const sessions = new Map(); // session_id -> { created_at }
 
   // Files live in memory for one request only and are never written to disk (REQ-10).
-  // multer/busboy flags a file whose size EQUALS the limit as too large, but the pod
-  // contract allows files of exactly 10 MB. The limit is set one byte higher so that a
-  // 10 MB file passes and a 10 MB + 1 byte file is still rejected (caught by test T-11).
+  // A one-byte margin accommodates parser boundary semantics; the explicit check below
+  // enforces the contract independently of multer's inclusive/exclusive limit behavior.
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_SIZE_BYTES + 1, files: 1 } });
 
   // The base URL itself lists the endpoints, so opening it in a browser doesn't look broken.
@@ -39,14 +46,19 @@ export function createSystemRouter() {
     // Checkpoint 1: size. Oversized files are stopped while they upload (413).
     upload.single('file')(req, res, (err) => {
       if (!err) return next();
+      clearUpload(req);
       if (err.code === 'LIMIT_FILE_SIZE') {
         return sendError(res, 413, 'FILE_TOO_LARGE', `The file is larger than ${MAX_FILE_SIZE_MB} MB.`);
       }
       return sendError(res, 400, 'MISSING_FILE', 'A file is required in the "file" field.');
     });
   }, async (req, res) => {
+    try {
     // Checkpoint 2: a file is attached and the settings are valid (400).
     if (!req.file) return sendError(res, 400, 'MISSING_FILE', 'A file is required.');
+    if (req.file.size > MAX_FILE_SIZE_BYTES) {
+      return sendError(res, 413, 'FILE_TOO_LARGE', `The file is larger than ${MAX_FILE_SIZE_MB} MB.`);
+    }
     const wcagLevel = req.body?.wcag_level ?? 'AA';
     if (!WCAG_LEVELS.includes(wcagLevel)) {
       return sendError(res, 400, 'INVALID_WCAG_LEVEL', 'wcag_level must be "A" or "AA".');
@@ -64,17 +76,20 @@ export function createSystemRouter() {
       return sendError(res, 422, 'UNPROCESSABLE_FILE', 'The file could not be evaluated.');
     }
 
-    try {
-      const result = await analyze({ mime, buffer: req.file.buffer, wcagLevel });
+      const result = await analyzeDocument({ mime, buffer: req.file.buffer, wcagLevel });
       return res.json(result);
     } catch (e) {
+      if (e instanceof UnprocessableFileError) {
+        return sendError(res, 422, 'UNPROCESSABLE_FILE', e.message);
+      }
       if (e instanceof DependencyUnavailableError) {
         // Never present partial results as a finished evaluation (REQ-09).
         return sendError(res, 503, 'PROCESSING_UNAVAILABLE', 'The evaluation service is temporarily unavailable. Try again.');
       }
-      throw e;
+      // The common interface defines internal processing failures as 503, too.
+      return sendError(res, 503, 'PROCESSING_UNAVAILABLE', 'The evaluation could not be completed. Try again.');
     } finally {
-      req.file.buffer = null; // drop the upload as soon as the answer is ready
+      clearUpload(req);
     }
   });
 
