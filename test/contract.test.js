@@ -7,6 +7,10 @@ import assert from 'node:assert/strict';
 import { cases, runCase } from '../src/cases.js';
 import { createApp } from '../src/app.js';
 
+// Keeps request logs out of test output (src/app.js reads this per request). Set here rather
+// than in the npm script so `npm test` works the same in bash, PowerShell and cmd.
+process.env.NODE_ENV ??= 'test';
+
 const remote = process.env.BASE_URL;
 let server;
 let base = remote;

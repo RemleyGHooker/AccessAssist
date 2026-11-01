@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { PDFDocument, PDFName, PDFString } from 'pdf-lib';
 import { analyze, NO_VIOLATIONS, UnprocessableFileError } from '../src/analyzer.js';
 import { contrastRatio, parseColor, requiredRatio } from '../src/checks/contrast.js';
+import { shrinkLongRuns } from '../src/checks/html.js';
 import { builders } from '../src/fixtures.js';
 import { improveFixes } from '../src/remediation.js';
 
@@ -82,6 +83,24 @@ test('HTML: invalid lang codes and empty titles are reported', async () => {
 test('HTML: one-row and layout tables need no headers', async () => {
   const r = await run(HTML, page('<h1>T</h1><table><tr><td>a</td></tr></table><table role="presentation"><tr><td>a</td></tr><tr><td>b</td></tr></table>'));
   assert.deepEqual(r.issues, []);
+});
+
+test('HTML: very long comments, base64 images and padding are cut before parsing, with locations kept', async () => {
+  const pad = 'x'.repeat(200_000);
+  const b64 = 'QUJD'.repeat(100_000);
+  const spaces = ' '.repeat(50_000);
+  const src = `<!doctype html>\n<html lang="en"><head><title>T</title></head><body><!--${pad}-->\n`
+    + `<img src="data:image/png;base64,${b64}" alt="Logo of the course">${spaces}<p>text</p>\n`
+    + '<img src="a.png" id="late"></body></html>';
+  const { shrunk, toOriginal } = shrinkLongRuns(src);
+  assert.ok(shrunk.length < 1000);
+  const at = shrunk.indexOf('<img src="a.png"');
+  assert.equal(toOriginal(at), src.indexOf('<img src="a.png"'));
+  const r = await run(HTML, src);
+  assert.deepEqual(criteria(r), ['1.1.1']); // the base64 image keeps its alt; only the late image fails
+  assert.equal(r.issues[0].location.line, 4);
+  assert.equal(r.issues[0].location.snippet, '<img src="a.png" id="late">');
+  assert.equal(shrinkLongRuns('<p>short</p>').shrunk, '<p>short</p>');
 });
 
 test('wcag_level=A runs only Level A criteria and says which ones ran', async () => {

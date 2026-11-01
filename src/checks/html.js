@@ -24,8 +24,9 @@ function computeLocation(ctx, el) {
   const location = { selector: selectorFor(el) };
   if (loc) {
     location.line = loc.startLine;
-    const end = loc.startTag?.endOffset ?? loc.endOffset;
-    location.snippet = ctx.text.slice(loc.startOffset, Math.min(end, loc.startOffset + SNIPPET_MAX));
+    const start = ctx.toOriginal(loc.startOffset);
+    const end = ctx.toOriginal(loc.startTag?.endOffset ?? loc.endOffset);
+    location.snippet = ctx.text.slice(start, Math.min(end, start + SNIPPET_MAX));
   }
   return location;
 }
@@ -435,7 +436,58 @@ export const htmlRules = [
   { criterion: '4.1.2', run: checkNames },
 ];
 
+// parse5 builds comments, text and attribute values one character at a time, which costs
+// about 32 bytes of memory per character. A 10 MB comment or base64-embedded image would need
+// over 300 MB and crash a small Cloud Run instance (seen live as a bare 503 on test T-11).
+// A long run of letters and digits (or of spaces and tabs) parses the same however long it
+// is, so the middle of each run is cut before parsing. Newlines are never cut, so parse5's
+// line numbers stay right; offsets are mapped back to the original text when locating issues.
+const LONG_RUN_MIN = 4096;
+const RUN_KEEP = 64;
+
+// 1 = letter, digit, '+' or '/' (base64); 2 = space or tab; 0 = anything else.
+function runClass(code) {
+  if ((code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122) || code === 43 || code === 47) return 1;
+  if (code === 32 || code === 9) return 2;
+  return 0;
+}
+
+export function shrinkLongRuns(text) {
+  const cuts = []; // { at: offset in the shrunk text where a cut was made, shift: total chars cut up to there }
+  const parts = [];
+  let shift = 0;
+  let copied = 0; // original text before this offset is already in parts
+  let i = 0;
+  while (i < text.length) {
+    const cls = runClass(text.charCodeAt(i));
+    let j = i + 1;
+    if (cls !== 0) while (j < text.length && runClass(text.charCodeAt(j)) === cls) j++;
+    if (cls !== 0 && j - i >= LONG_RUN_MIN) {
+      parts.push(text.slice(copied, i + RUN_KEEP));
+      cuts.push({ at: i + RUN_KEEP - shift, shift: shift + (j - i - 2 * RUN_KEEP) });
+      shift += j - i - 2 * RUN_KEEP;
+      copied = j - RUN_KEEP;
+    }
+    i = j;
+  }
+  if (cuts.length === 0) return { shrunk: text, toOriginal: (offset) => offset };
+  parts.push(text.slice(copied));
+  const shrunk = parts.join('');
+  const toOriginal = (offset) => {
+    let lo = 0;
+    let hi = cuts.length - 1;
+    let s = 0;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (cuts[mid].at <= offset) { s = cuts[mid].shift; lo = mid + 1; } else hi = mid - 1;
+    }
+    return offset + s;
+  };
+  return { shrunk, toOriginal };
+}
+
 export function loadHtml(buffer) {
   const text = buffer.toString('utf8');
-  return { text, $: load(text, { sourceCodeLocationInfo: true }) };
+  const { shrunk, toOriginal } = shrinkLongRuns(text);
+  return { text, toOriginal, $: load(shrunk, { sourceCodeLocationInfo: true }) };
 }

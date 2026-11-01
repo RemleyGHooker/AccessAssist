@@ -57,6 +57,8 @@ npm test                  # full suite against a fresh local server
 BASE_URL=https://<service>.run.app/system npm run test:remote   # same suite against a live system
 ```
 
+The npm scripts work the same in bash, PowerShell and cmd. In PowerShell, set the live address with `$env:BASE_URL = "https://<service>.run.app/system"; npm run test:remote`.
+
 Test another team from our deployed tester:
 
 ```bash
@@ -125,5 +127,6 @@ Uploads are held in memory for one request and dropped once the answer is sent. 
 - Checks are limited to the eight criteria above. A clean result means none of *those* problems were found, which the response states; it is not a full WCAG audit, and judgment calls (is this alt text meaningful? does this chart rely on color?) still need a person.
 - HTML contrast uses inline styles and `<style>` blocks only; linked stylesheets, CSS variables and text over images are not evaluated. PDF contrast and reading order are not checked. Word colors set through styles (not directly on text) are not checked.
 - Word locations are paragraph numbers, not page numbers, because .docx files have no fixed pages.
+- Long runs of letters, digits or spaces in HTML (padding, base64-embedded images) are shortened before parsing, so a 10 MB file of that kind needs little memory. A 10 MB page made of hundreds of thousands of real elements still needs close to 1 GB, so give the Cloud Run service at least 1 GiB of memory.
 - Test sessions live in memory and reset when the service restarts.
 - Live code coverage is shared by sessions that run at the same time.

@@ -11,9 +11,9 @@
   },
   "scripts": {
     "start": "node src/server.js",
-    "test": "NODE_ENV=test node --test --test-concurrency=1 \"test/**/*.test.js\"",
-    "test:coverage": "NODE_ENV=test c8 --reporter=text-summary --reporter=lcov node --test --test-concurrency=1 \"test/**/*.test.js\"",
-    "test:remote": "NODE_ENV=test node --test test/contract.test.js",
+    "test": "node --test --test-concurrency=1 \"test/**/*.test.js\"",
+    "test:coverage": "c8 --reporter=text-summary --reporter=lcov node --test --test-concurrency=1 \"test/**/*.test.js\"",
+    "test:remote": "node --test test/contract.test.js",
     "lint": "eslint . --max-warnings 0",
     "lint:openapi": "redocly lint openapi.yaml tester-openapi.yaml",
     "audit": "npm audit --audit-level=high --omit=dev"
