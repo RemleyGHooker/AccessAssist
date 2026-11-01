@@ -90,3 +90,44 @@ test('unknown paths still answer in JSON', async () => {
   assert.equal(r.status, 404);
   assert.equal((await r.json()).code, 'NOT_FOUND');
 });
+
+test('malformed JSON is labeled with the service that received it', async () => {
+  for (const [path, source] of [['/tester/test/setup', 'tester'], ['/system/test/setup', 'system']]) {
+    const r = await fetch(root + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"oops"' });
+    assert.equal(r.status, 400);
+    assert.equal((await r.json()).source, source);
+  }
+});
+
+test('a target that answers HTTP 500 is recorded as an error from the system, not a failed check', async () => {
+  const { createServer } = await import('node:http');
+  const broken = createServer((req, res) => {
+    if (req.url === '/test/setup') { res.writeHead(201, { 'content-type': 'application/json' }); return res.end('{}'); }
+    res.writeHead(500, { 'content-type': 'application/json' });
+    return res.end('{"code":"INTERNAL_ERROR","message":"boom"}');
+  }).listen(0);
+  await new Promise((r) => broken.once('listening', r));
+  try {
+    const setup = await post('/tester/test/setup', { target_url: `http://127.0.0.1:${broken.address().port}` });
+    const { session_id } = await setup.json();
+    const report = await (await post('/tester/test/run', { session_id })).json();
+    const t01 = report.results.find((r) => r.test_id === 'T-01');
+    assert.equal(t01.outcome, 'error');
+    assert.equal(t01.source, 'system');
+  } finally {
+    broken.close();
+  }
+});
+
+test('system report measures live line coverage between setup and report', { skip: process.env.NODE_V8_COVERAGE ? 'c8 owns the V8 counters in this run' : false }, async () => {
+  await post('/system/test/setup', { session_id: 'cov-1', setup: {} });
+  const form = new FormData();
+  form.append('file', new Blob(['<!doctype html><html lang="en"><head><title>T</title></head><body><h1>x</h1><img src="a.png"></body></html>'], { type: 'text/html' }), 'a.html');
+  assert.equal((await fetch(`${root}/system/analyze`, { method: 'POST', body: form })).status, 200);
+  const first = await (await fetch(`${root}/system/test/report?session_id=cov-1`)).json();
+  const { covered, total } = first.coverage.code;
+  assert.ok(Number.isInteger(covered) && Number.isInteger(total), JSON.stringify(first));
+  assert.ok(covered > 0 && covered < total, `${covered}/${total}`);
+  const again = await (await fetch(`${root}/system/test/report?session_id=cov-1`)).json();
+  assert.deepEqual(again, first, 'repeated reports agree');
+});

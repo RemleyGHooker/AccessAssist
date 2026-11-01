@@ -1,7 +1,7 @@
 openapi: 3.1.1
 info:
   title: AccessAssist System API (Pod F common interface)
-  version: 0.3.0
+  version: 0.4.0
   description: >
     Common interface for the Pod F ADA Title II accessibility checker (ECE 30861, Teams 19 and 20),
     plus the course cross-team test endpoints. Stateless, no authentication, HTTPS only.
@@ -60,6 +60,11 @@ paths:
       tags: [project]
       operationId: analyzeDocument
       summary: Check a document against supported WCAG 2.1 criteria (REQ-01 to REQ-09, REQ-13)
+      description: >
+        HTML, PDF and Word files are checked by deterministic rules. Each issue names one WCAG 2.1
+        success criterion from the bounded set 1.1.1, 1.3.1, 1.4.3, 1.4.5, 2.4.2, 2.4.4, 3.1.1 and 4.1.2.
+        With wcag_level=A only Level A criteria run (1.4.3 and 1.4.5 are Level AA). A file that passes
+        intake but cannot be parsed (for example a corrupt Word archive) returns 422, never results.
       requestBody:
         required: true
         content:
@@ -86,7 +91,7 @@ paths:
           description: Unsupported file type (UNSUPPORTED_MEDIA_TYPE)
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
         '422':
-          description: Empty, corrupt or malformed file (UNPROCESSABLE_FILE)
+          description: Empty, corrupt or malformed file, including one that fails to parse during analysis (UNPROCESSABLE_FILE)
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
         '503':
           description: A required internal or external service failed (PROCESSING_UNAVAILABLE); safe to retry
@@ -95,7 +100,7 @@ paths:
     post:
       tags: [testing]
       operationId: systemTestSetup
-      summary: Prepare a test session (no stored state is needed; the id is recorded)
+      summary: Prepare a test session and start live code coverage for it (no other state is stored)
       requestBody:
         required: true
         content:
@@ -126,7 +131,7 @@ paths:
     get:
       tags: [testing]
       operationId: systemTestReport
-      summary: Code coverage measured for a session
+      summary: Line coverage of the system's source measured between setup and the first report
       parameters:
         - name: session_id
           in: query
@@ -176,15 +181,15 @@ components:
       type: object
       required: [issues]
       properties:
-        wcag_level: { type: string, enum: [A, AA] }
+        wcag_level: { type: string, enum: [A, AA], description: 'Level the file was checked at (Team 19 extension, optional).' }
         issues:
           type: array
           items: { $ref: '#/components/schemas/Issue' }
         checks_run:
           type: array
-          description: WCAG criteria actually checked for this file type. Empty means no evaluation was performed.
-          items: { type: string }
-        no_violations_detected: { type: boolean }
+          description: WCAG criteria actually checked for this file type and wcag_level (Team 19 extension, optional).
+          items: { type: string, pattern: '^\d+\.\d+\.\d+$' }
+        no_violations_detected: { type: boolean, description: 'True exactly when issues is empty (Team 19 extension, optional).' }
         message:
           type: string
           description: Required when issues is empty. Never a certification of full compliance (REQ-08).

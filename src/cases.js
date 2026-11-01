@@ -10,20 +10,27 @@ const SEVERITIES = ['critical', 'serious', 'moderate', 'minor'];
 
 const TIMEOUT_MS = 30_000; // REQ-12 limit
 
-async function call(base, path, init = {}) {
+// The target answered with a server failure (HTTP 5xx) where the contract defines no such answer.
+// That is an error in the system under test, not a failed check (course testing interface).
+export class TargetServerError extends Error {}
+
+async function call(base, path, init = {}, { allowServerError = false } = {}) {
   const started = Date.now();
   const res = await fetch(base.replace(/\/$/, '') + path, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
   const text = await res.text();
   let body = null;
   try { body = JSON.parse(text); } catch { /* non-JSON body is itself a conformance failure */ }
+  if (res.status >= 500 && !allowServerError) {
+    throw new TargetServerError(`Target answered HTTP ${res.status}: ${text.slice(0, 200)}`);
+  }
   return { status: res.status, body, ms: Date.now() - started };
 }
 
-function analyze(base, fixture, fields = {}) {
+function analyze(base, fixture, fields = {}, options = {}) {
   const form = new FormData();
   if (fixture) form.append('file', new Blob([fixture.data], { type: fixture.type }), fixture.name);
   for (const [k, v] of Object.entries(fields)) form.append(k, v);
-  return call(base, '/analyze', { method: 'POST', body: form });
+  return call(base, '/analyze', { method: 'POST', body: form }, options);
 }
 
 // ---- shared assertions ----
@@ -57,6 +64,36 @@ function isResult(r) {
   }
   return pass(`Received 200 with ${r.body.issues.length} issue(s) in the contract format.`);
 }
+
+const criteriaOf = (r) => [...new Set(r.body.issues.map((i) => i.wcag_criterion))].sort();
+
+// The fixture has exactly the listed problems, so the report must name exactly these criteria:
+// a missing one is a missed violation, an extra one is a false positive (AC-04, AC-05).
+async function expectExactly(b, fixture, expected, fields) {
+  return exactly(await analyze(b, fixture, fields), expected);
+}
+
+function exactly(r, expected) {
+  const base = isResult(r);
+  if (base.outcome !== 'pass') return base;
+  const got = criteriaOf(r);
+  const want = [...expected].sort();
+  return JSON.stringify(got) === JSON.stringify(want)
+    ? pass(`Expected criteria ${want.join(', ')}; received ${got.join(', ')}.`)
+    : fail(`Expected criteria [${want.join(', ')}]; received [${got.join(', ')}] ${JSON.stringify(r.body.issues.map((i) => i.description))}.`);
+}
+
+async function expectClean(b, fixture) {
+  const r = await analyze(b, fixture);
+  const base = isResult(r);
+  if (base.outcome !== 'pass') return base;
+  return r.body.issues.length === 0 && /no supported violations/i.test(r.body.message ?? '')
+    ? pass('Received an empty issues array with an explicit no-violations message.')
+    : fail(`Expected no issues and an explicit no-violations message; received ${JSON.stringify(r.body)}.`);
+}
+
+const hasLocation = (i) => i.location !== null && typeof i.location === 'object'
+  && ['selector', 'line', 'page', 'snippet'].some((k) => i.location[k] !== undefined && i.location[k] !== '');
 
 // ---- the suite ----
 // local: true means the test needs control of the server process (fault injection) and
@@ -144,7 +181,69 @@ export const cases = [
         : fail(`Expected an explicit no-violations message; received ${JSON.stringify(r.body)}.`);
     } },
   { id: 'T-16', ac: ['AC-09'], component: 'analyze', name: 'Dependency outage returns 503, never partial results', local: true,
-    run: async (b) => isError(await analyze(b, fixtures.missingAltHtml), 503, 'PROCESSING_UNAVAILABLE') },
+    run: async (b) => isError(await analyze(b, fixtures.missingAltHtml, {}, { allowServerError: true }), 503, 'PROCESSING_UNAVAILABLE') },
+
+  // ---- Phase 4: the evaluation engine (REQ-04 to REQ-08) ----
+  { id: 'T-17', ac: ['AC-04', 'AC-05'], component: 'analyze', name: 'HTML text below 4.5:1 contrast is reported under 1.4.3',
+    run: async (b) => expectExactly(b, fixtures.lowContrastHtml, ['1.4.3']) },
+  { id: 'T-18', ac: ['AC-04', 'AC-05'], component: 'analyze', name: 'HTML heading that skips a level is reported under 1.3.1',
+    run: async (b) => expectExactly(b, fixtures.headingSkipHtml, ['1.3.1']) },
+  { id: 'T-19', ac: ['AC-04', 'AC-05'], component: 'analyze', name: 'HTML with no page language and no title is reported under 3.1.1 and 2.4.2',
+    run: async (b) => expectExactly(b, fixtures.noLangNoTitleHtml, ['2.4.2', '3.1.1']) },
+  { id: 'T-20', ac: ['AC-04', 'AC-05', 'AC-06', 'AC-07'], component: 'analyze', name: 'Word image with no alt text is reported under 1.1.1',
+    run: async (b) => expectExactly(b, fixtures.missingAltDocx, ['1.1.1']) },
+  { id: 'T-21', ac: ['AC-08'], component: 'analyze', name: 'Accessible Word file gets an explicit no-violations message',
+    run: async (b) => expectClean(b, fixtures.accessibleDocx) },
+  { id: 'T-22', ac: ['AC-04', 'AC-05'], component: 'analyze', name: 'Untagged PDF is reported under 1.3.1',
+    run: async (b) => {
+      const r = await analyze(b, fixtures.untaggedPdf);
+      const base = isResult(r);
+      if (base.outcome !== 'pass') return base;
+      return criteriaOf(r).includes('1.3.1')
+        ? pass('Expected a 1.3.1 issue for the untagged PDF; received one.')
+        : fail(`Expected an issue with wcag_criterion 1.3.1; received [${criteriaOf(r).join(', ')}].`);
+    } },
+  { id: 'T-23', ac: ['AC-04', 'AC-05', 'AC-07'], component: 'analyze', name: 'Tagged PDF figure with no alt text is reported under 1.1.1 on page 1',
+    run: async (b) => {
+      const r = await analyze(b, fixtures.figureNoAltPdf);
+      const exact = exactly(r, ['1.1.1']);
+      if (exact.outcome !== 'pass') return exact;
+      return r.body.issues[0]?.location?.page === 1
+        ? pass('Received a 1.1.1 issue located on page 1.')
+        : fail(`Expected location.page 1; received ${JSON.stringify(r.body.issues[0]?.location)}.`);
+    } },
+  { id: 'T-24', ac: ['AC-08'], component: 'analyze', name: 'Accessible tagged PDF gets an explicit no-violations message',
+    run: async (b) => expectClean(b, fixtures.accessiblePdf) },
+  { id: 'T-25', ac: ['AC-03'], component: 'validation', name: 'Corrupt Word file is rejected (422), never evaluated',
+    run: async (b) => isError(await analyze(b, fixtures.corruptDocx), 422, 'UNPROCESSABLE_FILE') },
+  { id: 'T-26', ac: ['AC-04', 'AC-13'], component: 'analyze', name: 'wcag_level=A leaves out Level AA criteria such as 1.4.3',
+    run: async (b) => {
+      const aa = await analyze(b, fixtures.lowContrastHtml, { wcag_level: 'AA' });
+      const a = await analyze(b, fixtures.lowContrastHtml, { wcag_level: 'A' });
+      for (const r of [aa, a]) { const base = isResult(r); if (base.outcome !== 'pass') return base; }
+      if (!criteriaOf(aa).includes('1.4.3')) return fail('Expected 1.4.3 at level AA; it was not reported.');
+      return criteriaOf(a).includes('1.4.3')
+        ? fail('1.4.3 is a Level AA criterion but was reported for wcag_level=A.')
+        : pass('1.4.3 reported at AA and left out at A.');
+    } },
+  { id: 'T-27', ac: ['AC-06', 'AC-07'], component: 'analyze', name: 'Every issue in a page with five problems has a location and a fix',
+    run: async (b) => {
+      const r = await analyze(b, fixtures.manyProblemsHtml);
+      const base = isResult(r);
+      if (base.outcome !== 'pass') return base;
+      const want = ['1.1.1', '1.3.1', '1.4.3', '2.4.4'];
+      const missing = want.filter((c) => !criteriaOf(r).includes(c));
+      if (missing.length) return fail(`Expected issues under ${missing.join(', ')}; none reported.`);
+      if (!r.body.issues.some((i) => ['1.3.1', '3.3.2', '4.1.2'].includes(i.wcag_criterion) && /label|name/i.test(i.description))) {
+        return fail('Expected the unlabeled form field to be reported (1.3.1, 3.3.2 or 4.1.2).');
+      }
+      const unlocated = r.body.issues.filter((i) => !hasLocation(i));
+      return unlocated.length === 0
+        ? pass(`All ${r.body.issues.length} issues name a location and carry a fix.`)
+        : fail(`${unlocated.length} issue(s) have no location: ${JSON.stringify(unlocated)}.`);
+    } },
+  { id: 'T-28', ac: ['AC-04', 'AC-08'], component: 'analyze', name: 'Accessible page with tables, forms and links has no false positives',
+    run: async (b) => expectClean(b, fixtures.richAccessibleHtml) },
 ];
 
 // Pod component list used for component coverage (proposed to the pod in Phase 3).
@@ -155,6 +254,7 @@ export async function runCase(c, base) {
   try {
     return await c.run(base);
   } catch (e) {
+    if (e instanceof TargetServerError) return { outcome: 'error', source: 'system', message: `${c.name}: ${e.message}` };
     const timeout = e?.name === 'TimeoutError' || e?.name === 'AbortError';
     return { outcome: 'error', source: timeout || e?.cause ? 'communication' : 'tester', message: `${c.name}: ${e?.message ?? e}` };
   }

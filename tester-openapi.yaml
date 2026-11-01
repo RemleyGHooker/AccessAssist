@@ -1,0 +1,144 @@
+openapi: 3.1.1
+info:
+  title: AccessAssist Tester API (course cross-team testing interface)
+  version: 0.4.0
+  description: >
+    Team 19's deployed tester. It runs the Team 19 suite (src/cases.js) against any team's
+    system base URL and reports per-test outcomes plus code, component and system-model coverage.
+    Sessions and reports are kept in memory until the instance stops.
+  license:
+    name: UNLICENSED
+    identifier: UNLICENSED
+servers:
+  - url: https://accessassist-git-365255122806.europe-west1.run.app/tester
+    description: Team 19 deployed tester (Google Cloud Run)
+security: []
+tags:
+  - name: testing
+    description: Course cross-team testing interface
+paths:
+  /test/setup:
+    post:
+      tags: [testing]
+      operationId: testerSetup
+      summary: Create a session against a target system and call its /test/setup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target_url]
+              properties:
+                target_url: { type: string, format: uri, description: 'System base URL, http(s), no query or fragment' }
+      responses:
+        '201':
+          description: Session ready
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [session_id]
+                properties:
+                  session_id: { type: string }
+        '400':
+          description: Invalid target_url or malformed JSON (source tester)
+          content: { application/json: { schema: { $ref: '#/components/schemas/TestError' } } }
+        '500':
+          description: Target unreachable (source communication) or its setup failed (status and source forwarded)
+          content: { application/json: { schema: { $ref: '#/components/schemas/TestError' } } }
+  /test/run:
+    post:
+      tags: [testing]
+      operationId: testerRun
+      summary: Run the whole suite once for a session and return the report
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [session_id]
+              properties:
+                session_id: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: Suite finished
+          content: { application/json: { schema: { $ref: '#/components/schemas/Report' } } }
+        '400':
+          description: Missing session_id
+          content: { application/json: { schema: { $ref: '#/components/schemas/TestError' } } }
+        '404':
+          description: Unknown session
+          content: { application/json: { schema: { $ref: '#/components/schemas/TestError' } } }
+        '409':
+          description: Session already run
+          content: { application/json: { schema: { $ref: '#/components/schemas/TestError' } } }
+        '500':
+          description: Tester aborted; the partial report is kept for GET /test/report
+          content: { application/json: { schema: { $ref: '#/components/schemas/TestError' } } }
+  /test/report:
+    get:
+      tags: [testing]
+      operationId: testerReport
+      summary: Fetch the stored report for a session
+      parameters:
+        - name: session_id
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: Stored report
+          content: { application/json: { schema: { $ref: '#/components/schemas/Report' } } }
+        '400':
+          description: Missing session_id
+          content: { application/json: { schema: { $ref: '#/components/schemas/TestError' } } }
+        '404':
+          description: Unknown session
+          content: { application/json: { schema: { $ref: '#/components/schemas/TestError' } } }
+        '409':
+          description: Suite not finished yet
+          content: { application/json: { schema: { $ref: '#/components/schemas/TestError' } } }
+components:
+  schemas:
+    TestError:
+      type: object
+      required: [message, source]
+      properties:
+        message: { type: string, minLength: 1 }
+        source: { type: string, enum: [tester, system, communication, unknown] }
+    Result:
+      type: object
+      required: [test_id, outcome, message]
+      properties:
+        test_id: { type: string, pattern: '^T-\d+$' }
+        outcome: { type: string, enum: [pass, fail, error, skip] }
+        source:
+          type: string
+          enum: [tester, system, communication]
+          description: Present when outcome is error. A target HTTP 5xx is an error from source system.
+        message: { type: string, minLength: 1 }
+    CoverageMeasure:
+      type: object
+      required: [covered, total, basis]
+      properties:
+        covered: { type: [integer, 'null'], minimum: 0 }
+        total: { type: [integer, 'null'], minimum: 0 }
+        basis: { type: string, minLength: 1 }
+    Report:
+      type: object
+      required: [session_id, target_url, results, coverage]
+      properties:
+        session_id: { type: string }
+        target_url: { type: string }
+        results:
+          type: array
+          items: { $ref: '#/components/schemas/Result' }
+        coverage:
+          type: object
+          required: [code, component, system]
+          properties:
+            code: { $ref: '#/components/schemas/CoverageMeasure' }
+            component: { $ref: '#/components/schemas/CoverageMeasure' }
+            system: { $ref: '#/components/schemas/CoverageMeasure' }

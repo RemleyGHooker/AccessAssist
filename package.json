@@ -1,6 +1,6 @@
 {
   "name": "accessassist",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "AccessAssist: ADA Title II / WCAG 2.1 AA document checker (ECE 30861 Team 19)",
   "private": true,
   "license": "UNLICENSED",
@@ -15,12 +15,15 @@
     "test:coverage": "NODE_ENV=test c8 --reporter=text-summary --reporter=lcov node --test --test-concurrency=1 \"test/**/*.test.js\"",
     "test:remote": "NODE_ENV=test node --test test/contract.test.js",
     "lint": "eslint . --max-warnings 0",
-    "lint:openapi": "redocly lint openapi.yaml",
+    "lint:openapi": "redocly lint openapi.yaml tester-openapi.yaml",
     "audit": "npm audit --audit-level=high --omit=dev"
   },
   "dependencies": {
+    "cheerio": "^1.0.0",
     "express": "^4.22.3",
-    "multer": "^1.4.5-lts.1"
+    "fflate": "^0.8.3",
+    "multer": "^1.4.5-lts.1",
+    "pdf-lib": "^1.17.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
