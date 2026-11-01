@@ -2,7 +2,26 @@
 
 AccessAssist checks course documents against the ADA Title II web rule, which requires public universities' online content and documents to meet WCAG 2.1 Level AA (28 CFR §35.200). Professors upload a file and get back each accessibility problem, the WCAG rule it breaks, and how to fix it.
 
-**Phase 3 status:** the secure intake layer is complete (REQ-01, 02, 03, 11, 13). Two HTML checks run end to end (WCAG 1.1.1 image text alternatives, 3.1.1 page language). Full detection, PDF and Word checks, and AI-written fix suggestions are Phase 4.
+**Phase 4 status:** the evaluation engine is in place (REQ-04 to REQ-08) on top of the Phase 3 intake layer (REQ-01, 02, 03, 11, 13). HTML, PDF and Word files are all checked against a bounded set of eight WCAG 2.1 criteria; every issue names its criterion, location, severity and a fix, and a clean file gets an explicit no-violations message. Optional Groq rewording of fixes is built in and off until a key is configured.
+
+## What is checked
+
+Detection and the WCAG mapping are deterministic rules ([`src/checks/`](src/checks)); the criterion list lives in [`src/criteria.js`](src/criteria.js). `wcag_level=A` runs only the Level A rows; `AA` (default) runs all of them. `checks_run` in every result lists exactly which criteria ran.
+
+| WCAG 2.1 | Level | HTML | PDF | Word (.docx) |
+| --- | --- | --- | --- | --- |
+| 1.1.1 Non-text Content | A | `img` without alt (or a file name / generic word as alt), image buttons, image-map areas, `svg role="img"` | Figure tags without `/Alt`; images in an untagged PDF | Pictures, charts, SmartArt without alt text (decorative ones skipped) |
+| 1.3.1 Info and Relationships | A | Skipped heading levels; data tables with no header cells | Untagged PDF; tables with no `TH` | Skipped heading levels; bold/large text used instead of Heading styles; tables with no header row |
+| 1.4.3 Contrast (Minimum) | AA | Text below 4.5:1 (3:1 for large text), from inline styles and `<style>` rules | — | Font colors below 4.5:1 against page, shading or highlight |
+| 1.4.5 Images of Text | AA | — | Pages with images but no real text (scans) | — |
+| 2.4.2 Page Titled | A | Missing or empty `<title>` | No title, or title not shown (`DisplayDocTitle`) | No Title property |
+| 2.4.4 Link Purpose | A | Links with no text, or "click here"-style text | — | Same as HTML |
+| 3.1.1 Language of Page | A | Missing or invalid `lang` | Missing or invalid `/Lang` | No default proofing language |
+| 4.1.2 Name, Role, Value | A | Unlabeled form fields, unnamed buttons, untitled iframes | Form fields with no tooltip (`/TU`) | — |
+
+Colors the checker cannot know for sure (CSS variables, transparency, background images) are skipped, not guessed. Locations are `{selector, line, snippet}` for HTML, `{page, snippet}` for PDF, and `{snippet}` naming the paragraph for Word.
+
+**AI-written fixes (optional).** If `GROQ_API_KEY` is set (Cloud Run: mount it from Secret Manager), each issue's `suggested_fix` is reworded by Groq (`GROQ_MODEL`, default `llama-3.1-8b-instant`, temperature 0, 8 s timeout). Only the criterion, the rule's description and fix, and the short location snippet are sent, never the file. Groq cannot add, remove or re-map issues; if it fails or answers badly, the rule-written fix is kept, so the evaluation is still complete.
 
 ## Try it
 
@@ -17,14 +36,14 @@ One Cloud Run service hosts both parts, on different paths:
 | System (pod common interface) | `/system` | `GET /health`, `GET /formats`, `POST /analyze`, `POST /test/setup`, `GET /test/report` |
 | Tester (course testing interface) | `/tester` | `POST /test/setup`, `POST /test/run`, `GET /test/report` |
 
-The full contract is in [`openapi.yaml`](openapi.yaml). Errors always look like `{"code": "...", "message": "..."}`:
+The full contract is in [`openapi.yaml`](openapi.yaml); the tester is described in [`tester-openapi.yaml`](tester-openapi.yaml). Errors always look like `{"code": "...", "message": "..."}`:
 
 | Status | Code | When |
 | --- | --- | --- |
 | 400 | `MISSING_FILE` / `INVALID_WCAG_LEVEL` | No file attached, or `wcag_level` not `A`/`AA` |
 | 413 | `FILE_TOO_LARGE` | Over 10 MB (exactly 10 MB is accepted) |
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | Not HTML, PDF or DOCX |
-| 422 | `UNPROCESSABLE_FILE` | Empty, cut off, or not really the type it claims |
+| 422 | `UNPROCESSABLE_FILE` | Empty, cut off, not really the type it claims, or fails to parse during analysis |
 | 503 | `PROCESSING_UNAVAILABLE` | A required service failed; safe to retry |
 
 **Accepted types:** `text/html`, `application/pdf`, and Word `.docx`. The type comes from the declared MIME type, or the file extension when the type is generic. A file that claims a supported type but whose contents don't match gets 422, not 415.
@@ -65,8 +84,26 @@ One suite, [`src/cases.js`](src/cases.js), drives both CI (`npm test`) and the d
 | T-14 | Every error has `code` + `message`, never `issues` | AC-13 |
 | T-15 | Clean file gets an explicit no-violations message | AC-08, AC-13 |
 | T-16 | Simulated outage returns 503, never partial results (CI only) | AC-09 |
+| T-17 | Low-contrast HTML text reported under 1.4.3 (and nothing else) | AC-04, AC-05 |
+| T-18 | Skipped HTML heading level reported under 1.3.1 | AC-04, AC-05 |
+| T-19 | HTML with no language and no title reported under 3.1.1 and 2.4.2 | AC-04, AC-05 |
+| T-20 | Word image with no alt text reported under 1.1.1 | AC-04 to AC-07 |
+| T-21 | Accessible Word file gets the no-violations message | AC-08 |
+| T-22 | Untagged PDF reported under 1.3.1 | AC-04, AC-05 |
+| T-23 | Tagged PDF figure with no alt reported under 1.1.1, on page 1 | AC-04, AC-05, AC-07 |
+| T-24 | Accessible tagged PDF gets the no-violations message | AC-08 |
+| T-25 | Corrupt Word file rejected with 422, never evaluated | AC-03 |
+| T-26 | `wcag_level=A` leaves out Level AA criteria (1.4.3) | AC-04, AC-13 |
+| T-27 | Every issue in a five-problem page has a location and a fix | AC-06, AC-07 |
+| T-28 | Accessible page with tables, forms and links has no false positives | AC-04, AC-08 |
+
+Fixtures that should produce specific criteria are checked for *exactly* those criteria, so both missed violations and false positives fail. [`test/analyzer.test.js`](test/analyzer.test.js) adds unit tests for each rule (contrast math, decorative images, RoleMap figures, Word highlights, Groq fallback, and so on). The fix wording itself (AC-06 quality) still needs human review against the pod rubric.
 
 Coverage for the tester's report uses this pod component list: `health`, `formats`, `validation`, `analyze`, `test-interface`.
+
+**Live code coverage.** `POST /system/test/setup` starts V8's built-in precise coverage (or resets it), and `GET /system/test/report` returns how many executable lines of the system's own source files ran since then. Sessions that overlap in time share counters. It is off when c8 is measuring (CI) or when `LIVE_COVERAGE=off`.
+
+**Tester error handling.** A target that answers HTTP 5xx where the contract defines no such answer is recorded as `error` with source `system` (not `fail`), and malformed JSON sent to the tester is labeled source `tester`.
 
 ## CI and deployment
 
@@ -85,6 +122,8 @@ Uploads are held in memory for one request and dropped once the answer is sent. 
 
 ## Known limitations
 
-- Only two HTML checks exist yet. PDF and Word files are accepted, but the response says no evaluation was performed (`checks_run: []`), so it is never mistaken for a pass.
+- Checks are limited to the eight criteria above. A clean result means none of *those* problems were found, which the response states; it is not a full WCAG audit, and judgment calls (is this alt text meaningful? does this chart rely on color?) still need a person.
+- HTML contrast uses inline styles and `<style>` blocks only; linked stylesheets, CSS variables and text over images are not evaluated. PDF contrast and reading order are not checked. Word colors set through styles (not directly on text) are not checked.
+- Word locations are paragraph numbers, not page numbers, because .docx files have no fixed pages.
 - Test sessions live in memory and reset when the service restarts.
-- `/system/test/report` returns `null` code coverage with a reason; CI reports line coverage for every commit.
+- Live code coverage is shared by sessions that run at the same time.

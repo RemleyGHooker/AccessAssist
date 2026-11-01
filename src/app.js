@@ -39,9 +39,13 @@ export function createApp() {
 
   app.use((_req, res) => res.status(404).json({ code: 'NOT_FOUND', message: 'No such endpoint.' }));
   // Any unexpected crash still answers in the standard error shape.
-  app.use((err, _req, res, _next) => {
+  app.use((err, req, res, _next) => {
+    if (err.type === 'entity.parse.failed') {
+      // Bad JSON is the caller's mistake; label it with the service that received it.
+      const source = req.originalUrl.startsWith('/tester') ? 'tester' : 'system';
+      return res.status(400).json({ message: 'Request body is not valid JSON.', source });
+    }
     console.error(JSON.stringify({ severity: 'ERROR', message: err.stack || String(err) }));
-    if (err.type === 'entity.parse.failed') return res.status(400).json({ message: 'Request body is not valid JSON.', source: 'system' });
     res.status(500).json({ code: 'INTERNAL_ERROR', message: 'Unexpected server error.' });
   });
   return app;

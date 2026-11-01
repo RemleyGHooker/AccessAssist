@@ -5,7 +5,8 @@
 import express from 'express';
 import multer from 'multer';
 import { MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_MB, SUPPORTED, SUPPORTED_MIME_TYPES, resolveType } from './formats.js';
-import { analyze, DependencyUnavailableError } from './analyzer.js';
+import { analyze, DependencyUnavailableError, UnprocessableFileError } from './analyzer.js';
+import { measureCoverage, startOrResetCoverage } from './coverage.js';
 
 const WCAG_LEVELS = ['A', 'AA'];
 
@@ -68,6 +69,10 @@ export function createSystemRouter() {
       const result = await analyze({ mime, buffer: req.file.buffer, wcagLevel });
       return res.json(result);
     } catch (e) {
+      if (e instanceof UnprocessableFileError) {
+        // The file looked like its type at intake but could not be parsed (REQ-03).
+        return sendError(res, 422, 'UNPROCESSABLE_FILE', 'The file could not be evaluated.');
+      }
       if (e instanceof DependencyUnavailableError) {
         // Never present partial results as a finished evaluation (REQ-09).
         return sendError(res, 503, 'PROCESSING_UNAVAILABLE', 'The evaluation service is temporarily unavailable. Try again.');
@@ -79,30 +84,42 @@ export function createSystemRouter() {
   });
 
   // ---- Course cross-team testing endpoints ----
-  router.post('/test/setup', express.json(), (req, res) => {
+  router.post('/test/setup', express.json(), async (req, res) => {
     const id = req.body?.session_id;
     if (typeof id !== 'string' || id.length === 0) {
       return res.status(400).json({ message: 'session_id is required.', source: 'system' });
     }
     if (sessions.has(id)) return res.status(409).json({ message: 'Session already exists.', source: 'system' });
-    sessions.set(id, { created_at: new Date().toISOString() });
+    let measuring = false;
+    try { measuring = await startOrResetCoverage(); } catch { /* coverage is best effort; setup still succeeds */ }
+    sessions.set(id, { created_at: new Date().toISOString(), measuring, code: null });
     return res.status(201).json({ session_id: id });
   });
 
-  router.get('/test/report', (req, res) => {
+  router.get('/test/report', async (req, res) => {
     const id = req.query.session_id;
     if (!id) return res.status(400).json({ message: 'session_id is required.', source: 'system' });
-    if (!sessions.has(id)) return res.status(404).json({ message: 'Unknown session.', source: 'system' });
-    return res.json({
-      session_id: id,
-      coverage: {
-        code: {
+    const s = sessions.get(id);
+    if (!s) return res.status(404).json({ message: 'Unknown session.', source: 'system' });
+    if (!s.code) {
+      // Measured once, at the first report request, then kept so repeated requests agree.
+      let measured = null;
+      if (s.measuring) {
+        try { measured = await measureCoverage(); } catch { measured = null; }
+      }
+      s.code = measured
+        ? {
+          covered: measured.covered,
+          total: measured.total,
+          basis: `Executable lines of the system's source files (${measured.files.join(', ')}) run between this session's setup and its first report, measured live with V8 precise coverage. Sessions that overlap in time share counters.`,
+        }
+        : {
           covered: null,
           total: null,
-          basis: 'Source lines; live per-session instrumentation is not enabled on the deployed service. CI reports line coverage for every commit.',
-        },
-      },
-    });
+          basis: 'Live coverage is not available in this process (disabled, or the CI coverage tool owns the V8 counters). CI reports line coverage for every commit.',
+        };
+    }
+    return res.json({ session_id: id, coverage: { code: s.code } });
   });
 
   return router;

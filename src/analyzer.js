@@ -1,64 +1,54 @@
-// Accessibility analyzer.
-// Phase 3 ships two rule-based checks for HTML so the report format is exercised
-// end to end. The full rule set, PDF/Word checks, and AI-written fix suggestions
-// arrive in Phase 4 (REQ-04 to REQ-06).
+// Accessibility analyzer (Phase 4: REQ-04 to REQ-08).
+// Each supported file type has a rule set in src/checks/. Rules are deterministic: they
+// detect the problem, map it to one WCAG 2.1 criterion (src/criteria.js), say where it is,
+// and write a fix. Groq may reword the fixes afterwards (src/remediation.js), but it never
+// decides what is reported.
+
+import { MAX_ISSUES_PER_CRITERION, runRules } from './criteria.js';
+import { htmlRules, loadHtml } from './checks/html.js';
+import { loadPdf, pdfRules, UnreadablePdfError } from './checks/pdf.js';
+import { docxRules, loadDocx, UnreadableDocxError } from './checks/docx.js';
+import { improveFixes } from './remediation.js';
 
 export class DependencyUnavailableError extends Error {}
+// The file passed the intake checks but turned out to be unreadable once parsed (-> 422, REQ-03).
+export class UnprocessableFileError extends Error {}
 
-const NO_CHECKS_YET =
-  'This file type was accepted, but automated accessibility checks for it are not available yet. '
-  + 'No evaluation was performed, so this is not a compliance result.';
-
-const NO_VIOLATIONS =
+export const NO_VIOLATIONS =
   'No supported violations were detected. This does not certify full ADA or WCAG compliance.';
 
-function lineOf(text, index) {
-  return text.slice(0, index).split('\n').length;
-}
+const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
-function checkHtml(text) {
-  const issues = [];
-
-  // WCAG 2.1 SC 1.1.1 Non-text Content: every image needs a text alternative.
-  for (const match of text.matchAll(/<img\b[^>]*>/gi)) {
-    if (!/\balt\s*=/i.test(match[0])) {
-      issues.push({
-        wcag_criterion: '1.1.1',
-        location: { line: lineOf(text, match.index), snippet: match[0].slice(0, 120) },
-        severity: 'critical',
-        description: 'Image has no alt attribute, so screen reader users get no description of it.',
-        suggested_fix: 'Add a descriptive alt attribute, or alt="" if the image is purely decorative.',
-      });
-    }
-  }
-
-  // WCAG 2.1 SC 3.1.1 Language of Page: the page must declare its language.
-  const htmlTag = text.match(/<html\b[^>]*>/i);
-  if (htmlTag && !/\blang\s*=/i.test(htmlTag[0])) {
-    issues.push({
-      wcag_criterion: '3.1.1',
-      location: { line: lineOf(text, htmlTag.index), snippet: htmlTag[0].slice(0, 120) },
-      severity: 'serious',
-      description: 'The page does not declare its language, so screen readers may mispronounce it.',
-      suggested_fix: 'Add a lang attribute to the html element, for example <html lang="en">.',
-    });
-  }
-
-  return { issues, checks_run: ['1.1.1', '3.1.1'] };
-}
+const ENGINES = {
+  'text/html': { load: async (buf) => loadHtml(buf), rules: htmlRules, label: 'html' },
+  'application/pdf': { load: loadPdf, rules: pdfRules, label: 'pdf' },
+  [DOCX]: { load: async (buf) => loadDocx(buf), rules: docxRules, label: 'docx' },
+};
 
 export async function analyze({ mime, buffer, wcagLevel }) {
   if (process.env.SIMULATE_DEPENDENCY_FAILURE === 'true') {
     // Fault injection for REQ-09 tests: behaves like an outside service outage.
     throw new DependencyUnavailableError('Simulated dependency outage');
   }
+  const engine = ENGINES[mime];
+  if (!engine) throw new Error(`No analyzer for ${mime}`);
 
-  if (mime !== 'text/html') {
-    return { wcag_level: wcagLevel, issues: [], checks_run: [], no_violations_detected: false, message: NO_CHECKS_YET };
+  let ctx;
+  try {
+    ctx = await engine.load(buffer);
+  } catch (e) {
+    if (e instanceof UnreadablePdfError || e instanceof UnreadableDocxError) throw new UnprocessableFileError(e.message);
+    throw e;
   }
 
-  const { issues, checks_run } = checkHtml(buffer.toString('utf8'));
-  const result = { wcag_level: wcagLevel, issues, checks_run, no_violations_detected: issues.length === 0 };
-  if (issues.length === 0) result.message = NO_VIOLATIONS;
+  const { issues, checks_run, omitted } = await runRules(engine.rules, ctx, wcagLevel);
+  const finalIssues = await improveFixes(issues, { fileType: engine.label });
+  const result = { wcag_level: wcagLevel, issues: finalIssues, checks_run, no_violations_detected: finalIssues.length === 0 };
+  if (finalIssues.length === 0) result.message = NO_VIOLATIONS;
+  const extra = Object.entries(omitted);
+  if (extra.length > 0) {
+    result.message = `Showing the first ${MAX_ISSUES_PER_CRITERION} issues per criterion. Also found: `
+      + extra.map(([c, n]) => `${n} more under ${c}`).join(', ') + '. Fixing the pattern behind the listed issues usually fixes the rest.';
+  }
   return result;
 }
