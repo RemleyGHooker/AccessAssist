@@ -1,0 +1,63 @@
+digraph F1 {
+  graph [rankdir=TB, fontname="Helvetica", fontsize=12, nodesep=0.35, ranksep=0.32, pad=0.3,
+         label="Figure 1. Request workflow and state model for POST /system/analyze (Phase 5, revision 00012-fgg)", labelloc=t];
+  node  [fontname="Helvetica", fontsize=10, shape=box, style="rounded,filled", fillcolor="#FFFFFF", color="#37474F"];
+  edge  [fontname="Helvetica", fontsize=9, color="#37474F"];
+
+  start [label="POST /system/analyze\n(file, wcag_level)", shape=oval, fillcolor="#E3F2FD"];
+
+  subgraph cluster_receiving {
+    label="State: Receiving (intake, system.js)"; style="rounded,dashed"; color="#1565C0"; fontcolor="#1565C0";
+    c1 [label="Checkpoint 1: size\n(checked while uploading)", shape=diamond, style=filled, fillcolor="#FFFFFF", height=0.9];
+    c2 [label="Checkpoint 2: file present,\nwcag_level A or AA?", shape=diamond, style=filled, fillcolor="#FFFFFF", height=0.9];
+    c3 [label="Checkpoint 3: HTML, PDF\nor DOCX?", shape=diamond, style=filled, fillcolor="#FFFFFF", height=0.9];
+    c4 [label="Checkpoint 4: non-empty and\nbytes match the type?", shape=diamond, style=filled, fillcolor="#FFFFFF", height=0.9];
+    tf [label="Test fault requested?\n(X-Test-Fault with a live\nX-Test-Session only)", shape=diamond, style="dashed,filled", fillcolor="#FFFFFF", height=0.9];
+  }
+
+  subgraph cluster_evaluating {
+    label="State: Evaluating (analyzer.js)"; style="rounded,dashed"; color="#2E7D32"; fontcolor="#2E7D32";
+    guard [label="HTML only: streaming pre-scan\n(<= 150,000 elements and\n<= 1,000 levels deep?)", shape=diamond, style=filled, fillcolor="#FFFFFF", height=1.0];
+    parse [label="Parse by type\n(html.js / pdf.js / docx.js)"];
+    rules [label="Run WCAG rules for wcag_level\n(criteria.js: A rows, or all rows for AA)"];
+    groq [label="Reword fixes with Groq\n(optional; off in deployment;\nfalls back to rule-written fix)", style="rounded,dashed,filled", fillcolor="#FAFAFA"];
+  }
+
+  subgraph cluster_reporting {
+    label="State: Reporting"; style="rounded,dashed"; color="#6A1B9A"; fontcolor="#6A1B9A";
+    any [label="Any issues found?", shape=diamond, style=filled, fillcolor="#FFFFFF", height=0.7];
+    issues [label="200: issue list\n(criterion, location, severity,\ndescription, suggested_fix)", fillcolor="#E8F5E9"];
+    none [label="200: empty issues +\nexplicit no-violations message", fillcolor="#E8F5E9"];
+  }
+
+  e413 [label="413 FILE_TOO_LARGE", fillcolor="#FFEBEE"];
+  e400 [label="400 MISSING_FILE /\nINVALID_WCAG_LEVEL", fillcolor="#FFEBEE"];
+  e415 [label="415 UNSUPPORTED_MEDIA_TYPE", fillcolor="#FFEBEE"];
+  e422 [label="422 UNPROCESSABLE_FILE\n(reason in message)", fillcolor="#FFEBEE"];
+  e503 [label="503 PROCESSING_UNAVAILABLE\n(no issues, never partial results)", fillcolor="#FFEBEE"];
+  done [label="Response sent: upload dropped from memory,\nCache-Control: no-store, one JSON log line", shape=oval, fillcolor="#ECEFF1"];
+
+  start -> c1;
+  c1 -> c2 [label="<= 10 MB"];  c1 -> e413 [label="> 10 MB"];
+  c2 -> c3 [label="yes"];       c2 -> e400 [label="no"];
+  c3 -> c4 [label="yes"];       c3 -> e415 [label="no"];
+  c4 -> tf [label="yes"];       c4 -> e422 [label="no"];
+  tf -> guard [label="none"];
+  tf -> e503 [label="dependency-unavailable\n(simulated outage; no live\ndependency is deployed)", style=dashed];
+  guard -> parse [label="within limits\n(or PDF/DOCX)"]; guard -> e422 [label="over a limit"];
+  parse -> rules [label="parsed"]; parse -> e422 [label="unreadable"];
+  rules -> groq [label="all rules finished"];
+  rules -> e503 [label="rule or parser crash\n(incl. evaluation-crash test fault)"];
+  groq -> any;
+  any -> issues [label="yes"]; any -> none [label="no"];
+  {issues none e413 e400 e415 e422 e503} -> done [color="#90A4AE"];
+
+  legend [shape=plain, label=<
+   <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="2" COLOR="#90A4AE">
+   <TR><TD COLSPAN="2" ALIGN="LEFT"><B>Legend</B></TD></TR>
+   <TR><TD ALIGN="LEFT">Diamond</TD><TD ALIGN="LEFT">decision</TD></TR>
+   <TR><TD ALIGN="LEFT">Dashed outline / arrow</TD><TD ALIGN="LEFT">test-only or optional path</TD></TR>
+   <TR><TD ALIGN="LEFT">Dashed bracket</TD><TD ALIGN="LEFT">state from the Phase 2 state model</TD></TR>
+   <TR><TD ALIGN="LEFT">Red box</TD><TD ALIGN="LEFT">error exit, body {code, message}</TD></TR>
+   </TABLE>>];
+}

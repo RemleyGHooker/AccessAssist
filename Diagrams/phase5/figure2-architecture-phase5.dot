@@ -1,0 +1,75 @@
+digraph F2 {
+  graph [rankdir=LR, fontname="Helvetica", fontsize=12, nodesep=0.3, ranksep=0.55, pad=0.3, compound=true,
+         label="Figure 2. AccessAssist architecture as deployed in Phase 5 (component diagram)", labelloc=t];
+  node  [fontname="Helvetica", fontsize=10, shape=component, style=filled, fillcolor="#FFFFFF", color="#37474F"];
+  edge  [fontname="Helvetica", fontsize=9, color="#37474F"];
+
+  subgraph cluster_clients {
+    label="Clients"; style="rounded"; color="#90A4AE";
+    user  [label="Faculty / course staff\n(browser)", shape=box, style="rounded,filled", fillcolor="#E3F2FD"];
+    pod   [label="Pod F testers and graders\n(Team 20 tester, course graders)", shape=box, style="rounded,filled", fillcolor="#E3F2FD"];
+  }
+
+  subgraph cluster_run {
+    label="Google Cloud Run, europe-west1: service accessassist-git (one container: max instances 1, 2 GiB, Node.js 22)";
+    style="rounded"; color="#1565C0"; fontcolor="#1565C0";
+    app [label="app.js\n(Express: request log,\nX-App-Version, routing)"];
+    page [label="public/index.html\n(upload page)", shape=note];
+    subgraph cluster_system {
+      label="/system (pod interface)"; style="rounded,dashed"; color="#2E7D32"; fontcolor="#2E7D32";
+      sys [label="system.js\n(/health, /formats, /analyze;\nintake checkpoints, fault gate,\nCache-Control: no-store)"];
+      formats [label="formats.js\n(accepted types, 10 MB)"];
+      analyzer [label="analyzer.js\n(dispatch, 422/503 exits)"];
+      criteria [label="criteria.js\n(8 agreed WCAG criteria)"];
+      html [label="checks/html.js\n(streaming pre-scan +\nHTML rules)"];
+      pdf  [label="checks/pdf.js"];
+      docx [label="checks/docx.js"];
+      contrast [label="checks/contrast.js"];
+      remed [label="remediation.js\n(optional rewording)"];
+      ti [label="test-interface.js\n(/test/setup, /test/report)"];
+      cov [label="coverage.js\n(live line coverage\nvia Node inspector)"];
+      mem [label="In-memory state\n(test sessions, coverage;\nresets on restart)", shape=cylinder, fillcolor="#FFF8E1"];
+    }
+    subgraph cluster_tester {
+      label="/tester (cross-team tester)"; style="rounded,dashed"; color="#6A1B9A"; fontcolor="#6A1B9A";
+      tester [label="tester.js\n(/test/setup, /test/run,\n/test/report)"];
+      cases [label="cases.js + fixtures.js\n(34-test suite)"];
+      targets [label="targets.js\n(target_url checks)"];
+      design [label="design.js\n(16 design requirements\nfor coverage.model)"];
+    }
+  }
+
+  groq [label="Groq API\n(not configured in deployment)", shape=box, style="rounded,dashed,filled", fillcolor="#FAFAFA"];
+  target [label="Target system under test\n(Team 19 or Team 20 /system)", shape=box, style="rounded,filled", fillcolor="#E3F2FD"];
+  logging [label="Cloud Logging\n(one JSON line per request)", shape=box, style="rounded,filled", fillcolor="#ECEFF1"];
+  subgraph cluster_ci {
+    label="Delivery"; style="rounded"; color="#90A4AE";
+    gh [label="GitHub repo + Actions\n(CI on every PR/push;\nLive check after deploy)", shape=box, style="rounded,filled", fillcolor="#ECEFF1"];
+    build [label="Cloud Build\n(deploys main as a\nnew revision)", shape=box, style="rounded,filled", fillcolor="#ECEFF1"];
+  }
+
+  user -> app [label="HTTPS"];
+  pod -> app [label="HTTPS"];
+  app -> page;
+  app -> sys [label="/system/*"];
+  app -> tester [label="/tester/*"];
+  app -> logging [label="stdout", style=dashed];
+  sys -> formats; sys -> analyzer; sys -> ti;
+  analyzer -> criteria; analyzer -> html; analyzer -> pdf; analyzer -> docx; analyzer -> remed;
+  html -> contrast; docx -> contrast;
+  remed -> groq [style=dashed, label="HTTPS (if key set)"];
+  ti -> cov; ti -> mem; cov -> mem;
+  tester -> cases; tester -> targets; tester -> design;
+  tester -> target [label="HTTPS: suite requests,\n/test/setup, /test/report"];
+  gh -> build [label="push to main"];
+  build -> app [label="new revision", style=dashed, lhead=cluster_run];
+
+  legend [shape=plain, label=<
+   <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="2" COLOR="#90A4AE">
+   <TR><TD COLSPAN="2" ALIGN="LEFT"><B>Legend</B></TD></TR>
+   <TR><TD ALIGN="LEFT">Component box</TD><TD ALIGN="LEFT">source module in src/</TD></TR>
+   <TR><TD ALIGN="LEFT">Solid arrow</TD><TD ALIGN="LEFT">import or HTTP call</TD></TR>
+   <TR><TD ALIGN="LEFT">Dashed</TD><TD ALIGN="LEFT">optional, off, or deploy-time</TD></TR>
+   <TR><TD ALIGN="LEFT">Cylinder</TD><TD ALIGN="LEFT">state held in container memory</TD></TR>
+   </TABLE>>];
+}
