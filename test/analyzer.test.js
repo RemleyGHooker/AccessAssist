@@ -5,9 +5,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PDFDocument, PDFName, PDFString } from 'pdf-lib';
-import { analyze, NO_VIOLATIONS, UnprocessableFileError } from '../src/analyzer.js';
+import { analyze, DependencyUnavailableError, EvaluationFailedError, NO_VIOLATIONS, UnprocessableFileError } from '../src/analyzer.js';
 import { contrastRatio, parseColor, requiredRatio } from '../src/checks/contrast.js';
-import { shrinkLongRuns } from '../src/checks/html.js';
+import { MAX_HTML_DEPTH, MAX_HTML_ELEMENTS, scanHtml, shrinkLongRuns } from '../src/checks/html.js';
 import { builders } from '../src/fixtures.js';
 import { improveFixes } from '../src/remediation.js';
 
@@ -286,4 +286,40 @@ test('a repeated problem is capped at 50 issues per criterion and the message sa
   assert.equal(r.issues.length, 50);
   assert.match(r.message, /10 more under 1\.1\.1/);
   assert.equal(r.no_violations_detected, false);
+});
+
+// ---------- Phase 5: complexity guard and failure paths (REQ-09, REQ-12) ----------
+
+test('HTML pre-scan counts elements and nesting depth like a browser (void and implied end tags)', () => {
+  assert.deepEqual(scanHtml('<html><body><p>a<p>b<img src=x><br><ul><li>1<li>2</ul></body></html>'), { elements: 9, maxDepth: 4 });
+  assert.deepEqual(scanHtml('<!-- <div><div><div> --><script>if (a<b) document.write("<div>")</script>'), { elements: 1, maxDepth: 1 });
+});
+
+test('HTML at the element and depth limits is evaluated; one past either limit is unprocessable', async () => {
+  const doc = (body) => `<!doctype html><html lang="en"><head><title>T</title></head><body>${body}</body></html>`;
+  // html, head, title and body are 4 elements; fill up to exactly the limit.
+  const atLimit = await run(HTML, doc('<p>a</p>'.repeat(MAX_HTML_ELEMENTS - 4)));
+  assert.equal(atLimit.no_violations_detected, true);
+  await assert.rejects(run(HTML, doc('<p>a</p>'.repeat(MAX_HTML_ELEMENTS - 3))),
+    (e) => e instanceof UnprocessableFileError && /150,001 elements/.test(e.reason));
+  // html > body > (depth - 2) divs
+  const nested = (n) => doc('<div>'.repeat(n) + 'x' + '</div>'.repeat(n));
+  assert.equal((await run(HTML, nested(MAX_HTML_DEPTH - 2))).issues.length, 0);
+  await assert.rejects(run(HTML, nested(MAX_HTML_DEPTH - 1)), (e) => e instanceof UnprocessableFileError && /1,001 levels/.test(e.reason));
+});
+
+test('a 10 MB page of 1.3 million elements is refused in well under a second instead of exhausting memory', async () => {
+  const { fixtures } = await import('../src/fixtures.js');
+  const started = Date.now();
+  await assert.rejects(run(HTML, fixtures.elementHeavyHtml.data), UnprocessableFileError);
+  assert.ok(Date.now() - started < 5_000, `${Date.now() - started} ms`);
+});
+
+test('injected faults and unexpected rule failures never return partial results', async () => {
+  const data = page('<h1>T</h1><img src="a.png">');
+  await assert.rejects(analyze({ mime: HTML, buffer: Buffer.from(data), wcagLevel: 'AA', fault: 'dependency-unavailable' }), DependencyUnavailableError);
+  await assert.rejects(analyze({ mime: HTML, buffer: Buffer.from(data), wcagLevel: 'AA', fault: 'evaluation-crash' }),
+    (e) => e instanceof EvaluationFailedError && /Simulated rule crash/.test(e.message));
+  // Without a fault the same file evaluates normally.
+  assert.deepEqual(criteria(await run(HTML, data)), ['1.1.1']);
 });

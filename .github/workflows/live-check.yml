@@ -44,7 +44,7 @@ jobs:
       - name: Full suite against the live system
         run: |
           set -o pipefail
-          BASE_URL="$LIVE_URL/system" npm run test:remote 2>&1 | tee remote.txt
+          OWN_SYSTEM=true BASE_URL="$LIVE_URL/system" npm run test:remote 2>&1 | tee remote.txt
       - name: Summarize suite results
         if: always()
         run: |
@@ -58,7 +58,7 @@ jobs:
           echo "session $SID"
           curl -sS --max-time 600 -X POST "$LIVE_URL/tester/test/run" -H 'content-type: application/json' \
             -d "{\"session_id\":\"$SID\"}" | tee tester-report.json | jq .
-          echo "::notice title=Tester report::$(jq -c '{passed: ([.results[]|select(.outcome=="pass")]|length), failed: ([.results[]|select(.outcome=="fail")]|length), errors: ([.results[]|select(.outcome=="error")]|length), skipped: ([.results[]|select(.outcome=="skip")]|length), coverage: {component: .coverage.component, system: .coverage.system}}' tester-report.json)"
+          echo "::notice title=Tester report::$(jq -c '{passed: ([.results[]|select(.outcome=="pass")]|length), failed: ([.results[]|select(.outcome=="fail")]|length), errors: ([.results[]|select(.outcome=="error")]|length), skipped: ([.results[]|select(.outcome=="skip")]|length), coverage: {code: .coverage.code | {covered, total}, component: .coverage.component | {covered, total}, system: .coverage.system | {covered, total}, model: .coverage.model}}' tester-report.json)"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

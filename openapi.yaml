@@ -1,11 +1,12 @@
 openapi: 3.1.1
 info:
   title: AccessAssist System API (Pod F common interface)
-  version: 0.4.0
+  version: 0.5.0
   description: >
     Common interface for the Pod F ADA Title II accessibility checker (ECE 30861, Teams 19 and 20),
     plus the course cross-team test endpoints. Stateless, no authentication, HTTPS only.
-    Uploaded files are processed in memory and discarded after the response.
+    Uploaded files are processed in memory and discarded after the response, and every response
+    carries Cache-Control: no-store (REQ-10).
   license:
     name: UNLICENSED
     identifier: UNLICENSED
@@ -65,6 +66,28 @@ paths:
         success criterion from the bounded set 1.1.1, 1.3.1, 1.4.3, 1.4.5, 2.4.2, 2.4.4, 3.1.1 and 4.1.2.
         With wcag_level=A only Level A criteria run (1.4.3 and 1.4.5 are Level AA). A file that passes
         intake but cannot be parsed (for example a corrupt Word archive) returns 422, never results.
+        HTML pages with more than 150,000 elements or nested more than 1,000 levels deep are also
+        answered with 422 and the reason in the message, so every file of 10 MB or less is answered
+        within 30 seconds without exhausting memory (REQ-03, REQ-12). Any failure during evaluation
+        returns 503 with no issues, never partial results (REQ-09).
+
+        Team 19 test extension (not part of the pod contract): a request that names a live test
+        session in X-Test-Session may ask for a simulated failure with X-Test-Fault. Without a live
+        session the headers are ignored, and FAULT_INJECTION=off disables them entirely.
+      parameters:
+        - name: X-Test-Session
+          in: header
+          required: false
+          description: A session_id created through POST /test/setup (Team 19 test extension).
+          schema: { type: string }
+        - name: X-Test-Fault
+          in: header
+          required: false
+          description: >
+            Simulated failure for this request only (Team 19 test extension). dependency-unavailable
+            fails before evaluation; evaluation-crash fails after the first rule already found issues.
+            Both answer 503 PROCESSING_UNAVAILABLE with no issues.
+          schema: { type: string, enum: [dependency-unavailable, evaluation-crash] }
       requestBody:
         required: true
         content:
@@ -82,7 +105,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/AnalysisResult' }
         '400':
-          description: Missing file (MISSING_FILE) or invalid wcag_level (INVALID_WCAG_LEVEL)
+          description: Missing file (MISSING_FILE), invalid wcag_level (INVALID_WCAG_LEVEL), or an unknown X-Test-Fault for a live test session (INVALID_TEST_FAULT, Team 19 extension)
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
         '413':
           description: File larger than 10 MB (FILE_TOO_LARGE)
@@ -91,16 +114,18 @@ paths:
           description: Unsupported file type (UNSUPPORTED_MEDIA_TYPE)
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
         '422':
-          description: Empty, corrupt or malformed file, including one that fails to parse during analysis (UNPROCESSABLE_FILE)
+          description: Empty, corrupt or malformed file, one that fails to parse during analysis, or an HTML page over the element or nesting limit (UNPROCESSABLE_FILE); the message starts with "The file could not be evaluated"
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
         '503':
-          description: A required internal or external service failed (PROCESSING_UNAVAILABLE); safe to retry
+          description: A required internal or external service failed, or evaluation failed partway (PROCESSING_UNAVAILABLE); no issues are returned; safe to retry
           content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
   /test/setup:
     post:
       tags: [testing]
       operationId: systemTestSetup
       summary: Prepare a test session and start live code coverage for it (no other state is stored)
+      description: >
+        The session also enables Team 19 test fault injection for requests that name it (see POST /analyze).
       requestBody:
         required: true
         content:
@@ -110,7 +135,7 @@ paths:
               required: [session_id]
               properties:
                 session_id: { type: string, minLength: 1 }
-                setup: { type: object }
+                setup: { type: object, description: 'Pod-defined starting data; Pod F defines none, so {}' }
       responses:
         '201':
           description: Ready
@@ -122,7 +147,7 @@ paths:
                 properties:
                   session_id: { type: string }
         '400':
-          description: Missing session_id
+          description: Missing session_id, or setup is not an object
           content: { application/json: { schema: { $ref: '#/components/schemas/TestError' } } }
         '409':
           description: Session already exists
@@ -131,7 +156,11 @@ paths:
     get:
       tags: [testing]
       operationId: systemTestReport
-      summary: Line coverage of the system's source measured between setup and the first report
+      summary: Line coverage of the system's project code run since the session's setup
+      description: >
+        Counts executable source lines of the project code (not the test interface or tester) run by
+        project requests since this session's setup. Reading the report does not change the
+        measurement; later project requests can raise it. Sessions that overlap in time share the process.
       parameters:
         - name: session_id
           in: query
@@ -199,7 +228,8 @@ components:
       properties:
         code:
           type: string
-          enum: [MISSING_FILE, INVALID_WCAG_LEVEL, FILE_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, UNPROCESSABLE_FILE, PROCESSING_UNAVAILABLE]
+          enum: [MISSING_FILE, INVALID_WCAG_LEVEL, FILE_TOO_LARGE, UNSUPPORTED_MEDIA_TYPE, UNPROCESSABLE_FILE, PROCESSING_UNAVAILABLE, INVALID_TEST_FAULT]
+          description: INVALID_TEST_FAULT is a Team 19 test extension and only occurs for requests carrying X-Test-Session.
         message: { type: string, minLength: 1 }
     TestError:
       type: object

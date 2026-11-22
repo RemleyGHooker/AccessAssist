@@ -1,10 +1,13 @@
 openapi: 3.1.1
 info:
   title: AccessAssist Tester API (course cross-team testing interface)
-  version: 0.4.0
+  version: 0.5.0
   description: >
     Team 19's deployed tester. It runs the Team 19 suite (src/cases.js) against any team's
-    system base URL and reports per-test outcomes plus code, component and system-model coverage.
+    system base URL and reports per-test outcomes plus code, component and system coverage.
+    When the target is Team 19's own system, the report also includes model coverage
+    (Team 19 design requirements, docs/design-requirements.md) and runs the Team 19 design checks;
+    cross-team reports omit coverage.model and skip those checks.
     Sessions and reports are kept in memory until the instance stops.
   license:
     name: UNLICENSED
@@ -30,7 +33,14 @@ paths:
               type: object
               required: [target_url]
               properties:
-                target_url: { type: string, format: uri, description: 'System base URL, http(s), no query or fragment' }
+                target_url:
+                  type: string
+                  format: uri
+                  description: >
+                    System base URL: http(s), no credentials, query or fragment, and its host must
+                    resolve only to public addresses (private, loopback, link-local and metadata
+                    addresses are refused).
+                  examples: ['https://team-b.example.edu/system']
       responses:
         '201':
           description: Session ready
@@ -42,10 +52,13 @@ paths:
                 properties:
                   session_id: { type: string }
         '400':
-          description: Invalid target_url or malformed JSON (source tester)
+          description: Invalid or non-public target_url, or malformed JSON (source tester)
           content: { application/json: { schema: { $ref: '#/components/schemas/TestError' } } }
         '500':
-          description: Target unreachable (source communication) or its setup failed (status and source forwarded)
+          description: >
+            Target unreachable or its host could not be resolved (source communication), its setup
+            did not return 201 with the same session_id (source system), or its setup failed (the
+            system's status, message and source are forwarded unchanged)
           content: { application/json: { schema: { $ref: '#/components/schemas/TestError' } } }
   /test/run:
     post:
@@ -116,7 +129,7 @@ components:
         outcome: { type: string, enum: [pass, fail, error, skip] }
         source:
           type: string
-          enum: [tester, system, communication]
+          enum: [tester, system, communication, unknown]
           description: Present when outcome is error. A target HTTP 5xx is an error from source system.
         message: { type: string, minLength: 1 }
     CoverageMeasure:
@@ -142,3 +155,9 @@ components:
             code: { $ref: '#/components/schemas/CoverageMeasure' }
             component: { $ref: '#/components/schemas/CoverageMeasure' }
             system: { $ref: '#/components/schemas/CoverageMeasure' }
+            model:
+              $ref: '#/components/schemas/CoverageMeasure'
+              description: >
+                Present only when the target is Team 19's own system (Phase 5). Counts Team 19 design
+                requirements evaluated by at least one executed test; basis names the design version and
+                links to the requirement-to-test mapping.
