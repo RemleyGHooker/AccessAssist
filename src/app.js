@@ -17,6 +17,8 @@ function requestLog(req, res, next) {
       path: req.originalUrl.split('?')[0],
       status: res.statusCode,
       error_code: res.locals.errorCode,
+      // Present only on test requests that asked for a simulated failure (REQ-09 evidence).
+      fault_injected: res.locals.fault,
       latency_ms: Number((process.hrtime.bigint() - started) / 1_000_000n),
       version: VERSION,
     };
@@ -28,6 +30,10 @@ function requestLog(req, res, next) {
 export function createApp() {
   const app = express();
   app.disable('x-powered-by');
+  // Cloud Run terminates TLS in front of the container; trust its X-Forwarded-* headers so
+  // req.protocol and req.hostname are the public ones (the tester uses them to recognise our
+  // own system, src/targets.js).
+  app.set('trust proxy', true);
   app.use(requestLog);
   app.use((_req, res, next) => { res.set('X-App-Version', VERSION); next(); });
 

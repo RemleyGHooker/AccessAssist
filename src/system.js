@@ -1,12 +1,13 @@
 // The AccessAssist system: the pod's common interface (GET /health, GET /formats,
-// POST /analyze) plus the course test endpoints (POST /test/setup, GET /test/report).
-// Every response is JSON and every error uses one shape: { code, message } (REQ-13).
+// POST /analyze) plus the course test endpoints (POST /test/setup, GET /test/report, in
+// src/test-interface.js). Every response is JSON and every error uses one shape:
+// { code, message } (REQ-13).
 
 import express from 'express';
 import multer from 'multer';
 import { MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_MB, SUPPORTED, SUPPORTED_MIME_TYPES, resolveType } from './formats.js';
-import { analyze, DependencyUnavailableError, UnprocessableFileError } from './analyzer.js';
-import { measureCoverage, startOrResetCoverage } from './coverage.js';
+import { analyze, DependencyUnavailableError, EvaluationFailedError, FAULTS, UnprocessableFileError } from './analyzer.js';
+import { createTestInterfaceRouter } from './test-interface.js';
 
 const WCAG_LEVELS = ['A', 'AA'];
 
@@ -15,9 +16,26 @@ export function sendError(res, status, code, message) {
   return res.status(status).json({ code, message });
 }
 
+// Test fault injection (REQ-09 / AC-09), guarded three ways: it needs the X-Test-Fault header,
+// an X-Test-Session header naming a session created through POST /test/setup, and it is off
+// entirely when FAULT_INJECTION=off. It only changes the answer to that one request, so it
+// cannot affect anyone else. Without a live session the headers are ignored.
+export function faultFor(req, sessions) {
+  if (process.env.FAULT_INJECTION === 'off') return { fault: null };
+  const fault = req.get('x-test-fault');
+  const session = req.get('x-test-session');
+  if (!fault || !session || !sessions.has(session)) return { fault: null };
+  if (!FAULTS.includes(fault)) return { error: `X-Test-Fault must be one of: ${FAULTS.join(', ')}.` };
+  return { fault };
+}
+
 export function createSystemRouter() {
   const router = express.Router();
-  const sessions = new Map(); // session_id -> { created_at }
+  const sessions = new Map(); // session_id -> { created_at, since }
+
+  // Answers (results and errors alike) describe one user's upload, so no browser or proxy may
+  // keep a copy (REQ-10).
+  router.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 
   // Files live in memory for one request only and are never written to disk (REQ-10).
   // multer/busboy flags a file whose size EQUALS the limit as too large, but the pod
@@ -65,62 +83,36 @@ export function createSystemRouter() {
       return sendError(res, 422, 'UNPROCESSABLE_FILE', 'The file could not be evaluated.');
     }
 
+    const { fault, error } = faultFor(req, sessions);
+    if (error) { req.file.buffer = null; return sendError(res, 400, 'INVALID_TEST_FAULT', error); }
+    if (fault) res.locals.fault = fault;
+
     try {
-      const result = await analyze({ mime, buffer: req.file.buffer, wcagLevel });
+      const result = await analyze({ mime, buffer: req.file.buffer, wcagLevel, fault });
       return res.json(result);
     } catch (e) {
       if (e instanceof UnprocessableFileError) {
-        // The file looked like its type at intake but could not be parsed (REQ-03).
-        return sendError(res, 422, 'UNPROCESSABLE_FILE', 'The file could not be evaluated.');
+        // The file looked like its type at intake but could not be parsed, or is too complex to
+        // evaluate within the service's limits (REQ-03, REQ-12).
+        return sendError(res, 422, 'UNPROCESSABLE_FILE',
+          e.reason ? `The file could not be evaluated: ${e.reason}` : 'The file could not be evaluated.');
       }
-      if (e instanceof DependencyUnavailableError) {
-        // Never present partial results as a finished evaluation (REQ-09).
-        return sendError(res, 503, 'PROCESSING_UNAVAILABLE', 'The evaluation service is temporarily unavailable. Try again.');
+      if (e instanceof DependencyUnavailableError || e instanceof EvaluationFailedError) {
+        // Never present partial results as a finished evaluation (REQ-09). Unexpected failures
+        // keep their stack trace in the log; injected ones are labeled by the request log.
+        if (e instanceof EvaluationFailedError && !fault) {
+          console.error(JSON.stringify({ severity: 'ERROR', message: e.cause?.stack || e.stack }));
+        }
+        return sendError(res, 503, 'PROCESSING_UNAVAILABLE', 'The evaluation could not be completed, so no results are returned. Try again.');
       }
       throw e;
     } finally {
-      req.file.buffer = null; // drop the upload as soon as the answer is ready
+      if (req.file) req.file.buffer = null; // drop the upload as soon as the answer is ready (REQ-10)
     }
   });
 
-  // ---- Course cross-team testing endpoints ----
-  router.post('/test/setup', express.json(), async (req, res) => {
-    const id = req.body?.session_id;
-    if (typeof id !== 'string' || id.length === 0) {
-      return res.status(400).json({ message: 'session_id is required.', source: 'system' });
-    }
-    if (sessions.has(id)) return res.status(409).json({ message: 'Session already exists.', source: 'system' });
-    let measuring = false;
-    try { measuring = await startOrResetCoverage(); } catch { /* coverage is best effort; setup still succeeds */ }
-    sessions.set(id, { created_at: new Date().toISOString(), measuring, code: null });
-    return res.status(201).json({ session_id: id });
-  });
-
-  router.get('/test/report', async (req, res) => {
-    const id = req.query.session_id;
-    if (!id) return res.status(400).json({ message: 'session_id is required.', source: 'system' });
-    const s = sessions.get(id);
-    if (!s) return res.status(404).json({ message: 'Unknown session.', source: 'system' });
-    if (!s.code) {
-      // Measured once, at the first report request, then kept so repeated requests agree.
-      let measured = null;
-      if (s.measuring) {
-        try { measured = await measureCoverage(); } catch { measured = null; }
-      }
-      s.code = measured
-        ? {
-          covered: measured.covered,
-          total: measured.total,
-          basis: `Executable lines of the system's source files (${measured.files.join(', ')}) run between this session's setup and its first report, measured live with V8 precise coverage. Sessions that overlap in time share counters.`,
-        }
-        : {
-          covered: null,
-          total: null,
-          basis: 'Live coverage is not available in this process (disabled, or the CI coverage tool owns the V8 counters). CI reports line coverage for every commit.',
-        };
-    }
-    return res.json({ session_id: id, coverage: { code: s.code } });
-  });
+  // ---- Course cross-team testing endpoints (src/test-interface.js) ----
+  router.use(createTestInterfaceRouter(sessions));
 
   return router;
 }

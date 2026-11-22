@@ -8,6 +8,22 @@ const MB = 1024 * 1024;
 const html = (body, lang = ' lang="en"', title = '<title>Syllabus</title>', style = '') =>
   `<!doctype html>\n<html${lang}>\n<head>${title}${style}</head>\n<body>\n${body}\n</body>\n</html>\n`;
 
+// Phase 5 (REQ-12): a page made of as many tiny elements as fit in `bytes`, the worst case for
+// memory (about 1.3 million <p> elements in 10 MB).
+function elementHeavyHtml(bytes) {
+  const head = '<!doctype html>\n<html lang="en"><head><title>Many elements</title></head><body><h1>Many</h1>';
+  const tail = '</body></html>\n';
+  const unit = '<p>a</p>';
+  const n = Math.floor((bytes - head.length - tail.length) / unit.length);
+  const pad = ' '.repeat(bytes - head.length - tail.length - n * unit.length);
+  return Buffer.from(head + unit.repeat(n) + pad + tail);
+}
+
+// Phase 5: a small page (about 220 KB) nested 20,000 levels deep; it overflowed the stack in Phase 4.
+function deeplyNestedHtml(depth) {
+  return Buffer.from(html('<h1>Deep</h1>' + '<div>'.repeat(depth) + 'text' + '</div>'.repeat(depth)));
+}
+
 function padHtmlTo(bytes) {
   const head = '<!doctype html>\n<html lang="en"><body><h1>Big file</h1><!--';
   const tail = '--></body></html>\n';
@@ -144,6 +160,10 @@ export const fixtures = {
   accessibleDocx: { name: 'syllabus.docx', type: DOCX_TYPE, data: courseDocx() },
   missingAltDocx: { name: 'syllabus-noalt.docx', type: DOCX_TYPE, data: courseDocx({ imageAlt: null }) },
   corruptDocx: { name: 'broken.docx', type: DOCX_TYPE, data: corruptDocx },
+
+  // Phase 5 (REQ-09, REQ-10, REQ-12)
+  elementHeavyHtml: { name: 'many-elements.html', type: 'text/html', data: elementHeavyHtml(10 * MB) },
+  deeplyNestedHtml: { name: 'deep.html', type: 'text/html', data: deeplyNestedHtml(20_000) },
 };
 
 // Exposed for unit tests that need variants.

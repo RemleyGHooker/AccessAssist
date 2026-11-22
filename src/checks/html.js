@@ -3,6 +3,7 @@
 // can point at its line, a CSS selector, and a snippet of the offending markup.
 
 import { load } from 'cheerio';
+import { Parser } from 'htmlparser2';
 import { contrastRatio, parseColor, requiredRatio, toHex } from './contrast.js';
 
 const SNIPPET_MAX = 120;
@@ -486,8 +487,41 @@ export function shrinkLongRuns(text) {
   return { shrunk, toOriginal };
 }
 
+// ---------- complexity guard (Phase 5, REQ-12 / LIM-04) ----------
+// parse5 builds a full DOM with source locations, which costs about 1.4 KB per element: a 10 MB
+// page of 1.3 million <p> elements needed ~1.9 GB and 10 s, and a 200 KB page nested 20,000
+// levels deep overflowed the stack in the rules. A streaming scan (htmlparser2, ~60 MB and
+// <0.5 s for 10 MB) counts elements and nesting depth first; a page over either limit is
+// answered with 422 "could not be evaluated" (REQ-03) instead of crashing the instance and
+// taking other users' requests with it. Measured at the limits, the full analysis stays under
+// ~550 MB and ~3 s, well inside the 30 s limit (REQ-12). Real course pages are far below both.
+export const MAX_HTML_ELEMENTS = 150_000;
+export const MAX_HTML_DEPTH = 1_000;
+
+export class UnreadableHtmlError extends Error {}
+
+export function scanHtml(text) {
+  let elements = 0;
+  let depth = 0;
+  let maxDepth = 0;
+  const parser = new Parser({
+    onopentag() { elements++; depth++; if (depth > maxDepth) maxDepth = depth; },
+    onclosetag() { depth--; },
+  });
+  parser.write(text);
+  parser.end();
+  return { elements, maxDepth };
+}
+
 export function loadHtml(buffer) {
   const text = buffer.toString('utf8');
   const { shrunk, toOriginal } = shrinkLongRuns(text);
+  const { elements, maxDepth } = scanHtml(shrunk);
+  if (elements > MAX_HTML_ELEMENTS) {
+    throw new UnreadableHtmlError(`the page has ${elements.toLocaleString('en-US')} elements; AccessAssist evaluates HTML pages of up to ${MAX_HTML_ELEMENTS.toLocaleString('en-US')} elements.`);
+  }
+  if (maxDepth > MAX_HTML_DEPTH) {
+    throw new UnreadableHtmlError(`elements are nested ${maxDepth.toLocaleString('en-US')} levels deep; AccessAssist evaluates HTML nested up to ${MAX_HTML_DEPTH.toLocaleString('en-US')} levels.`);
+  }
   return { text, toOriginal, $: load(shrunk, { sourceCodeLocationInfo: true }) };
 }

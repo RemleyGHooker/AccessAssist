@@ -2,11 +2,19 @@
 // and the deployed tester service (POST /tester/test/run), so they never drift apart.
 // Expected answers come from the pod contract (Phase 2, Sections 5.1 and 5.2),
 // not from what our own system happens to return.
+//
+// Each test's run(base, ctx) gets ctx = { sessionId, own }: the tester session prepared through
+// system /test/setup, and whether the target is Team 19's own system. Tests marked own: true check
+// Team 19 design requirements through Team 19 extensions (test fault injection, checks_run,
+// Cache-Control); against another team's system they are skipped, not failed.
 
 import { fixtures } from './fixtures.js';
 
-const ERROR_CODES = { 400: ['MISSING_FILE', 'INVALID_WCAG_LEVEL'], 413: ['FILE_TOO_LARGE'], 415: ['UNSUPPORTED_MEDIA_TYPE'], 422: ['UNPROCESSABLE_FILE'], 503: ['PROCESSING_UNAVAILABLE'] };
+const ERROR_CODES = { 400: ['MISSING_FILE', 'INVALID_WCAG_LEVEL', 'INVALID_TEST_FAULT'], 413: ['FILE_TOO_LARGE'], 415: ['UNSUPPORTED_MEDIA_TYPE'], 422: ['UNPROCESSABLE_FILE'], 503: ['PROCESSING_UNAVAILABLE'] };
 const SEVERITIES = ['critical', 'serious', 'moderate', 'minor'];
+// The HTML rule set of the Team 19 criteria table (1.4.5 Images of Text is checked only in PDF).
+const HTML_CRITERIA_AA = ['1.1.1', '1.3.1', '1.4.3', '2.4.2', '2.4.4', '3.1.1', '4.1.2'];
+const HTML_CRITERIA_A = ['1.1.1', '1.3.1', '2.4.2', '2.4.4', '3.1.1', '4.1.2'];
 
 const TIMEOUT_MS = 30_000; // REQ-12 limit
 
@@ -16,21 +24,39 @@ export class TargetServerError extends Error {}
 
 async function call(base, path, init = {}, { allowServerError = false } = {}) {
   const started = Date.now();
-  const res = await fetch(base.replace(/\/$/, '') + path, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
+  // Redirects are not followed: a redirect is reported as the status it is, and cannot lead
+  // the tester to a host it was not given (src/targets.js).
+  const res = await fetch(base.replace(/\/$/, '') + path, { redirect: 'manual', ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
   const text = await res.text();
   let body = null;
   try { body = JSON.parse(text); } catch { /* non-JSON body is itself a conformance failure */ }
   if (res.status >= 500 && !allowServerError) {
     throw new TargetServerError(`Target answered HTTP ${res.status}: ${text.slice(0, 200)}`);
   }
-  return { status: res.status, body, ms: Date.now() - started };
+  return { status: res.status, body, ms: Date.now() - started, headers: res.headers };
 }
 
 function analyze(base, fixture, fields = {}, options = {}) {
   const form = new FormData();
   if (fixture) form.append('file', new Blob([fixture.data], { type: fixture.type }), fixture.name);
   for (const [k, v] of Object.entries(fields)) form.append(k, v);
-  return call(base, '/analyze', { method: 'POST', body: form }, options);
+  return call(base, '/analyze', { method: 'POST', body: form, headers: options.headers }, options);
+}
+
+// Team 19 test fault injection (src/system.js): only honored for a live test session.
+const withFault = (ctx, fault) => ({ allowServerError: true, headers: { 'X-Test-Session': ctx.sessionId, 'X-Test-Fault': fault } });
+
+// A file the pod contract lets a system either evaluate (200) or refuse as unprocessable (422);
+// either way it must answer in the contract format within 30 s and must not crash (REQ-03, REQ-12).
+async function resultOrUnprocessable(b, fixture) {
+  const r = await analyze(b, fixture);
+  if (r.status === 422) {
+    const e = isError(r, 422, 'UNPROCESSABLE_FILE');
+    return e.outcome === 'pass' ? pass(`Refused as unprocessable (422) in ${r.ms} ms: ${r.body.message}`) : e;
+  }
+  const base = isResult(r);
+  if (base.outcome !== 'pass') return fail(`Expected 200 with a result or 422 UNPROCESSABLE_FILE; ${base.message}`);
+  return r.ms <= TIMEOUT_MS ? pass(`Evaluated (200, ${r.body.issues.length} issue(s)) in ${r.ms} ms.`) : fail(`Took ${r.ms} ms, over the 30 s limit.`);
 }
 
 // ---- shared assertions ----
@@ -96,8 +122,8 @@ const hasLocation = (i) => i.location !== null && typeof i.location === 'object'
   && ['selector', 'line', 'page', 'snippet'].some((k) => i.location[k] !== undefined && i.location[k] !== '');
 
 // ---- the suite ----
-// local: true means the test needs control of the server process (fault injection) and
-// only runs in CI, never against another team's deployed service.
+// own: true means a Team 19 design check that uses a Team 19 extension; it runs only when the
+// target is our own system (locally, in CI, or the deployed one) and is skipped for other teams.
 export const cases = [
   { id: 'T-01', ac: ['AC-01'], component: 'analyze', name: 'Accessible HTML file is accepted and evaluated',
     run: async (b) => isResult(await analyze(b, fixtures.accessibleHtml)) },
@@ -180,8 +206,8 @@ export const cases = [
         ? pass('Received an empty issues array with an explicit no-violations message.')
         : fail(`Expected an explicit no-violations message; received ${JSON.stringify(r.body)}.`);
     } },
-  { id: 'T-16', ac: ['AC-09'], component: 'analyze', name: 'Dependency outage returns 503, never partial results', local: true,
-    run: async (b) => isError(await analyze(b, fixtures.missingAltHtml, {}, { allowServerError: true }), 503, 'PROCESSING_UNAVAILABLE') },
+  { id: 'T-16', ac: ['AC-09'], component: 'analyze', name: 'Dependency outage returns 503, never partial results', own: true,
+    run: async (b, ctx) => isError(await analyze(b, fixtures.missingAltHtml, {}, withFault(ctx, 'dependency-unavailable')), 503, 'PROCESSING_UNAVAILABLE') },
 
   // ---- Phase 4: the evaluation engine (REQ-04 to REQ-08) ----
   { id: 'T-17', ac: ['AC-04', 'AC-05'], component: 'analyze', name: 'HTML text below 4.5:1 contrast is reported under 1.4.3',
@@ -244,15 +270,62 @@ export const cases = [
     } },
   { id: 'T-28', ac: ['AC-04', 'AC-08'], component: 'analyze', name: 'Accessible page with tables, forms and links has no false positives',
     run: async (b) => expectClean(b, fixtures.richAccessibleHtml) },
+
+  // ---- Phase 5: reliability, privacy and response time (REQ-09, REQ-10, REQ-12) ----
+  { id: 'T-29', ac: ['AC-09'], component: 'analyze', name: 'Rule crash after issues were found returns 503 with no partial issues', own: true,
+    run: async (b, ctx) => isError(await analyze(b, fixtures.missingAltHtml, {}, withFault(ctx, 'evaluation-crash')), 503, 'PROCESSING_UNAVAILABLE') },
+  { id: 'T-30', ac: ['AC-12', 'AC-03'], component: 'analyze', name: '10 MB page of 1.3 million elements is answered within 30 s (result or 422), never a crash',
+    run: async (b) => resultOrUnprocessable(b, fixtures.elementHeavyHtml) },
+  { id: 'T-31', ac: ['AC-03', 'AC-13'], component: 'analyze', name: 'HTML nested 20,000 levels deep is answered (result or 422), never a crash',
+    run: async (b) => resultOrUnprocessable(b, fixtures.deeplyNestedHtml) },
+  { id: 'T-32', ac: ['AC-10'], component: 'analyze', name: 'Results and errors are marked Cache-Control: no-store', own: true,
+    run: async (b) => {
+      for (const [r, kind] of [[await analyze(b, fixtures.missingAltHtml), 'result'], [await analyze(b, fixtures.emptyFile), 'error']]) {
+        const cc = r.headers.get('cache-control') ?? '';
+        if (!/\bno-store\b/i.test(cc)) return fail(`The ${kind} response (HTTP ${r.status}) has Cache-Control "${cc}", not no-store.`);
+      }
+      return pass('Both a result and an error carry Cache-Control: no-store.');
+    } },
+  { id: 'T-33', ac: [], component: 'test-interface', name: 'System /test/report returns well-formed code coverage for this session',
+    run: async (b, ctx) => {
+      if (!ctx.sessionId) return { outcome: 'skip', message: 'No tester session was prepared for this run.' };
+      const r = await call(b, `/test/report?session_id=${encodeURIComponent(ctx.sessionId)}`);
+      if (r.status !== 200) return fail(`Expected 200; received ${r.status} ${JSON.stringify(r.body)}.`);
+      const code = r.body?.coverage?.code;
+      if (r.body?.session_id !== ctx.sessionId) return fail(`Expected session_id ${ctx.sessionId}; received ${JSON.stringify(r.body?.session_id)}.`);
+      if (!code || typeof code.basis !== 'string' || !code.basis.trim()) return fail(`coverage.code needs a nonempty basis; received ${JSON.stringify(code)}.`);
+      const bothNull = code.covered === null && code.total === null;
+      const counts = Number.isInteger(code.covered) && Number.isInteger(code.total) && code.covered >= 0 && code.covered <= code.total;
+      return bothNull || counts
+        ? pass(bothNull ? 'coverage.code is null with an explanation.' : `coverage.code is ${code.covered}/${code.total} with a basis.`)
+        : fail(`coverage.code counts must be both null or integers with 0 <= covered <= total; received ${JSON.stringify(code)}.`);
+    } },
+  { id: 'T-34', ac: ['AC-04', 'AC-05'], component: 'analyze', name: 'checks_run lists exactly the HTML criteria run at each level, and every issue is under one of them', own: true,
+    run: async (b) => {
+      const aa = await analyze(b, fixtures.manyProblemsHtml, { wcag_level: 'AA' });
+      const a = await analyze(b, fixtures.manyProblemsHtml, { wcag_level: 'A' });
+      for (const [r, want] of [[aa, HTML_CRITERIA_AA], [a, HTML_CRITERIA_A]]) {
+        const base = isResult(r);
+        if (base.outcome !== 'pass') return base;
+        const got = r.body.checks_run;
+        if (JSON.stringify(got) !== JSON.stringify(want)) return fail(`Expected checks_run ${want.join(', ')} at ${r.body.wcag_level}; received ${JSON.stringify(got)}.`);
+        const stray = r.body.issues.filter((i) => !got.includes(i.wcag_criterion));
+        if (stray.length) return fail(`Issue(s) under criteria that did not run: ${stray.map((i) => i.wcag_criterion).join(', ')}.`);
+      }
+      return pass('checks_run matches the criteria table at A and AA, and every issue is under a criterion that ran.');
+    } },
 ];
 
 // Pod component list used for component coverage (proposed to the pod in Phase 3).
 export const COMPONENTS = ['health', 'formats', 'validation', 'analyze', 'test-interface'];
 export const TOTAL_ACCEPTANCE_CRITERIA = 13; // AC-01 to AC-13
 
-export async function runCase(c, base) {
+export const OWN_ONLY_SKIP = 'checks a Team 19 design requirement through a Team 19 extension that is not in the pod contract, so it runs only against Team 19\'s own system.';
+
+export async function runCase(c, base, ctx = {}) {
+  if (c.own && !ctx.own) return { outcome: 'skip', message: `${c.name}: ${OWN_ONLY_SKIP}` };
   try {
-    return await c.run(base);
+    return await c.run(base, ctx);
   } catch (e) {
     if (e instanceof TargetServerError) return { outcome: 'error', source: 'system', message: `${c.name}: ${e.message}` };
     const timeout = e?.name === 'TimeoutError' || e?.name === 'AbortError';
